@@ -18,7 +18,7 @@ class ParticleSystem:
         self.particle_radius = 0.05  # particle radius
         self.particle_diameter = 2 * self.particle_radius
         self.support_radius = self.particle_radius * 4.0  # support radius
-        self.m_V = 0.8 * self.particle_diameter ** self.dim
+        self.m_V = 0.8 * self.particle_diameter ** self.dim  # Area of a particle, V_cube / V_sphere approximately equal to 0.8
         self.particle_max_num = 2 ** 15
         self.particle_max_num_per_cell = 100
         self.particle_max_num_neighbor = 100
@@ -181,11 +181,11 @@ class ParticleSystem:
                                    [len(n) for n in num_dim])
         assert self.particle_num[
                    None] + num_new_particles <= self.particle_max_num
-
         new_positions = np.array(np.meshgrid(*num_dim,
                                              sparse=False,
                                              indexing='ij'),
                                  dtype=np.float32)
+        print("new position shape ", new_positions.shape)
         new_positions = new_positions.reshape(-1,
                                               reduce(lambda x, y: x * y, list(new_positions.shape[1:]))).transpose()
         print("new position shape ", new_positions.shape)

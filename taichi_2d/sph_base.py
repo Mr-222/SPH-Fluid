@@ -10,8 +10,7 @@ class SPHBase:
         self.viscosity = 0.05  # viscosity
         self.density_0 = 1000.0  # reference density
         self.mass = self.ps.m_V * self.density_0
-        self.dt = ti.field(float, shape=())
-        self.dt[None] = 2e-4
+        self.dt = 1e-3
 
     @ti.func
     def cubic_kernel(self, r_norm):
@@ -60,22 +59,24 @@ class SPHBase:
                 res = k * (-factor * factor) * grad_q
         return res
 
+    # Finite difference approximation of the Laplacian of the velocity field
+    # grad(grad(u)) = 2(d + 2) \times \sum_{j=0}^n \frac{m_j}{\rho_j} \frac{v_{ij} \cdot r_{ij}}{r_{ij}^2 + 0.01h^2} \cdot \nabla W_{ij}
+    # From https://iopscience.iop.org/article/10.1088/0034-4885/68/8/R01/meta
+    # See https://www.bilibili.com/video/BV1mi4y1o7wz?p=6&vd_source=c88561792b6aa20d304938eb0d5a86d3 for more details
     @ti.func
     def viscosity_force(self, p_i, p_j, r):
         # Compute the viscosity force contribution
         v_xy = (self.ps.v[p_i] -
                 self.ps.v[p_j]).dot(r)
-        res = 2 * (self.ps.dim + 2) * self.viscosity * (self.mass / (self.ps.density[p_j])) * v_xy / (
-            r.norm()**2 + 0.01 * self.ps.support_radius**2) * self.cubic_kernel_derivative(
-                r)
+        res = (2 * (self.ps.dim + 2) * self.viscosity * (self.mass / (self.ps.density[p_j])) * v_xy /
+               (r.norm()**2 + 0.01 * self.ps.support_radius**2) * self.cubic_kernel_derivative(r))
         return res
 
     @ti.func
     def pressure_force(self, p_i, p_j, r):
         # Compute the pressure force contribution, Symmetric Formula
         res = -self.density_0 * self.ps.m_V * (self.ps.pressure[p_i] / self.ps.density[p_i] ** 2
-              + self.ps.pressure[p_j] / self.ps.density[p_j] ** 2) \
-              * self.cubic_kernel_derivative(r)
+              + self.ps.pressure[p_j] / self.ps.density[p_j] ** 2) * self.cubic_kernel_derivative(r)
         return res
 
     def substep(self):
