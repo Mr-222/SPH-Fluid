@@ -30,5 +30,5 @@ if __name__ == "__main__":
         particle_info = ps.dump()
         gui.circles(particle_info['position'] * ps.screen_to_world_ratio / 512,
                     radius=ps.particle_radius * ps.screen_to_world_ratio / 1.2,
-                    color=0x956333)
+                    color=0x72bcd4)
         gui.show()
