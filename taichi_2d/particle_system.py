@@ -42,8 +42,8 @@ class ParticleSystem:
         self.particle_neighbors_num = ti.field(int)
 
         self.particles_node = ti.root.dense(ti.i, self.particle_max_num)
-        self.particles_node.place(self.x, self.v, self.density, self.pressure, self.material, self.color)
-        self.particles_node.place(self.particle_neighbors_num)
+        self.particles_node.place(self.x, self.v, self.density, self.pressure, self.material,
+                                  self.color, self.particle_neighbors_num)
         self.particle_node = self.particles_node.dense(ti.j, self.particle_max_num_neighbor)
         self.particle_node.place(self.particle_neighbors)
 
@@ -85,6 +85,42 @@ class ParticleSystem:
                               new_particles_color[p - self.particle_num[None]])
         self.particle_num[None] += new_particles_num
 
+    def add_boundary_particles(self):
+        width = self.bound[0]
+        height = self.bound[1]
+        positions = []
+
+        # lower boundary
+        for x_pos in np.arange(0, width, self.particle_radius):
+            for y_pos in np.arange(0, self.support_radius, self.particle_radius):
+                positions.append([x_pos, y_pos])
+
+        # upper boundary
+        for x_pos in np.arange(0, width, self.particle_radius):
+            for y_pos in np.arange(height - self.support_radius, height, self.particle_radius):
+                positions.append([x_pos, y_pos])
+
+        # left boundary
+        for x_pos in np.arange(0, self.support_radius, self.particle_radius):
+            for y_pos in np.arange(0, height, self.particle_radius):
+                positions.append([x_pos, y_pos])
+
+        # right boundary
+        for x_pos in np.arange(width - self.support_radius, width, self.particle_radius):
+            for y_pos in np.arange(0, height, self.particle_radius):
+                positions.append([x_pos, y_pos])
+
+        positions = np.array(positions)
+        velocities = np.zeros_like(positions)
+        densities = np.array([1000.0 for _ in range(positions.shape[0])])
+        pressures = np.array([0.0 for _ in range(positions.shape[0])])
+        materials = np.array([self.material_boundary for _ in range(positions.shape[0])])
+        colors = np.array([0xa52a2a for _ in range(positions.shape[0])])
+
+        print("boundary particles positions shape ", positions.shape)
+
+        self.add_particles(positions.shape[0], positions, velocities, densities, pressures, materials, colors)
+
     @ti.func
     def pos_to_index(self, pos):
         return (pos / self.grid_size).cast(int)
@@ -101,23 +137,28 @@ class ParticleSystem:
     def allocate_particles_to_grid(self):
         for p in range(self.particle_num[None]):
             cell = self.pos_to_index(self.x[p])
-            offset = self.grid_particles_num[cell].atomic_add(1)
+            if not self.is_valid_cell(cell):
+                continue  # Skip particles outside the grid
+
+            offset = ti.atomic_add(self.grid_particles_num[cell], 1)
+            if offset >= self.particle_max_num_per_cell:
+                print("Offset: ", offset)
+                print("Max number per cell: ", self.particle_max_num_per_cell)
+            assert offset < self.particle_max_num_per_cell
             self.grid_particles[cell, offset] = p
 
     @ti.kernel
     def search_neighbors(self):
         for p_i in range(self.particle_num[None]):
-            # Skip boundary particles
-            if self.material[p_i] == self.material_boundary:
-                continue
             center_cell = self.pos_to_index(self.x[p_i])
             cnt = 0
             for offset in ti.grouped(ti.ndrange(*((-1, 2),) * self.dim)):
-                if cnt >= self.particle_max_num_neighbor:
-                    break
+                assert cnt < self.particle_max_num_neighbor
+
                 cell = center_cell + offset
                 if not self.is_valid_cell(cell):
-                    break
+                    continue
+
                 for j in range(self.grid_particles_num[cell]):
                     p_j = self.grid_particles[cell, j]
                     distance = (self.x[p_i] - self.x[p_j]).norm()
@@ -174,9 +215,7 @@ class ParticleSystem:
 
         num_dim = []
         for i in range(self.dim):
-            num_dim.append(
-                np.arange(lower_corner[i], lower_corner[i] + cube_size[i],
-                          self.particle_radius))
+            num_dim.append(np.arange(lower_corner[i], lower_corner[i] + cube_size[i], self.particle_radius))
         num_new_particles = reduce(lambda x, y: x * y,
                                    [len(n) for n in num_dim])
         assert self.particle_num[
@@ -185,7 +224,6 @@ class ParticleSystem:
                                              sparse=False,
                                              indexing='ij'),
                                  dtype=np.float32)
-        print("new position shape ", new_positions.shape)
         new_positions = new_positions.reshape(-1,
                                               reduce(lambda x, y: x * y, list(new_positions.shape[1:]))).transpose()
         print("new position shape ", new_positions.shape)
