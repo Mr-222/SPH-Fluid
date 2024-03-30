@@ -31,8 +31,8 @@ class WCSPHSolver(SPHBase):
     @ti.kernel
     def compute_pressure_forces(self):
         for p_i in range(self.ps.particle_num[None]):
-            self.ps.density[p_i] = ti.max(self.ps.density[p_i], self.density_0)  # Handle free surface
             if self.ps.material[p_i] == self.ps.material_fluid:
+                self.ps.density[p_i] = ti.max(self.ps.density[p_i], self.density_0)  # Handle free surface
                 self.ps.pressure[p_i] = self.stiffness * (ti.pow(self.ps.density[p_i] / self.density_0, self.exponent) - 1.0)
 
         for p_i in range(self.ps.particle_num[None]):
@@ -52,6 +52,7 @@ class WCSPHSolver(SPHBase):
         for p_i in range(self.ps.particle_num[None]):
             if self.ps.material[p_i] != self.ps.material_fluid:
                 continue
+
             x_i = self.ps.x[p_i]
             # Add body force
             d_v = ti.Vector([0.0 for _ in range(self.ps.dim)])

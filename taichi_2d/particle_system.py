@@ -41,18 +41,18 @@ class ParticleSystem:
         self.particle_neighbors = ti.field(int)
         self.particle_neighbors_num = ti.field(int)
 
-        self.particles_node = ti.root.dense(ti.i, self.particle_max_num)
+        self.particles_node = ti.root.bitmasked(ti.i, self.particle_max_num)
         self.particles_node.place(self.x, self.v, self.density, self.pressure, self.material,
                                   self.color, self.particle_neighbors_num)
-        self.particle_node = self.particles_node.dense(ti.j, self.particle_max_num_neighbor)
-        self.particle_node.place(self.particle_neighbors)
+        self.particle_neighbors_node = ti.root.pointer(ti.i, self.particle_max_num).bitmasked(ti.j, self.particle_max_num_neighbor)
+        self.particle_neighbors_node.place(self.particle_neighbors)
 
         index = ti.ij if self.dim == 2 else ti.ijk
         grid_node = ti.root.dense(index, self.grid_num)
         grid_node.place(self.grid_particles_num)
 
         cell_index = ti.k if self.dim == 2 else ti.l
-        cell_node = grid_node.dense(cell_index, self.particle_max_num_per_cell)
+        cell_node = grid_node.bitmasked(cell_index, self.particle_max_num_per_cell)
         cell_node.place(self.grid_particles)
 
     @ti.func
@@ -84,42 +84,6 @@ class ParticleSystem:
                               new_particles_material[p - self.particle_num[None]],
                               new_particles_color[p - self.particle_num[None]])
         self.particle_num[None] += new_particles_num
-
-    def add_boundary_particles(self):
-        width = self.bound[0]
-        height = self.bound[1]
-        positions = []
-
-        # lower boundary
-        for x_pos in np.arange(0, width, self.particle_radius):
-            for y_pos in np.arange(0, self.support_radius, self.particle_radius):
-                positions.append([x_pos, y_pos])
-
-        # upper boundary
-        for x_pos in np.arange(0, width, self.particle_radius):
-            for y_pos in np.arange(height - self.support_radius, height, self.particle_radius):
-                positions.append([x_pos, y_pos])
-
-        # left boundary
-        for x_pos in np.arange(0, self.support_radius, self.particle_radius):
-            for y_pos in np.arange(0, height, self.particle_radius):
-                positions.append([x_pos, y_pos])
-
-        # right boundary
-        for x_pos in np.arange(width - self.support_radius, width, self.particle_radius):
-            for y_pos in np.arange(0, height, self.particle_radius):
-                positions.append([x_pos, y_pos])
-
-        positions = np.array(positions)
-        velocities = np.zeros_like(positions)
-        densities = np.array([1000.0 for _ in range(positions.shape[0])])
-        pressures = np.array([0.0 for _ in range(positions.shape[0])])
-        materials = np.array([self.material_boundary for _ in range(positions.shape[0])])
-        colors = np.array([0xa52a2a for _ in range(positions.shape[0])])
-
-        print("boundary particles positions shape ", positions.shape)
-
-        self.add_particles(positions.shape[0], positions, velocities, densities, pressures, materials, colors)
 
     @ti.func
     def pos_to_index(self, pos):
@@ -237,3 +201,39 @@ class ParticleSystem:
         density = np.full_like(np.zeros(num_new_particles), density if density is not None else 1000.)
         pressure = np.full_like(np.zeros(num_new_particles), pressure if pressure is not None else 0.)
         self.add_particles(num_new_particles, new_positions, velocity, density, pressure, material, color)
+
+    def add_boundary_particles(self):
+        width = self.bound[0]
+        height = self.bound[1]
+        positions = []
+
+        # lower boundary
+        for x_pos in np.arange(0, width, self.particle_radius):
+            for y_pos in np.arange(0, self.support_radius, self.particle_radius):
+                positions.append([x_pos, y_pos])
+
+        # upper boundary
+        for x_pos in np.arange(0, width, self.particle_radius):
+            for y_pos in np.arange(height - self.support_radius, height, self.particle_radius):
+                positions.append([x_pos, y_pos])
+
+        # left boundary
+        for x_pos in np.arange(0, self.support_radius, self.particle_radius):
+            for y_pos in np.arange(0, height, self.particle_radius):
+                positions.append([x_pos, y_pos])
+
+        # right boundary
+        for x_pos in np.arange(width - self.support_radius, width, self.particle_radius):
+            for y_pos in np.arange(0, height, self.particle_radius):
+                positions.append([x_pos, y_pos])
+
+        positions = np.array(positions)
+        velocities = np.zeros_like(positions)
+        densities = np.array([1000.0 for _ in range(positions.shape[0])])
+        pressures = np.array([0.0 for _ in range(positions.shape[0])])
+        materials = np.array([self.material_boundary for _ in range(positions.shape[0])])
+        colors = np.array([0xa52a2a for _ in range(positions.shape[0])])
+
+        print("boundary particles positions shape ", positions.shape)
+
+        self.add_particles(positions.shape[0], positions, velocities, densities, pressures, materials, colors)
