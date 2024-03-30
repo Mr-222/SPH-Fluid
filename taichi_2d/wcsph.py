@@ -5,7 +5,8 @@ from sph_base import SPHBase
 class WCSPHSolver(SPHBase):
     def __init__(self, particle_system):
         super().__init__(particle_system)
-        # Pressure state function parameters(WCSPH)
+        # Pressure state function parameters(WCSPH), they are stiffness constants
+        # See https://sph-tutorial.physics-simulation.org/pdf/SPH_Tutorial.pdf Chapter 4.4
         self.exponent = 7.0
         self.stiffness = 50.0
 
@@ -27,12 +28,12 @@ class WCSPHSolver(SPHBase):
                 self.ps.density[p_i] += self.ps.m_V * self.cubic_kernel((x_i - x_j).norm())
             self.ps.density[p_i] *= self.density_0
 
-    # See https://www.bilibili.com/video/BV1mi4y1o7wz?p=6&vd_source=c88561792b6aa20d304938eb0d5a86d3 for more details
+    # https://sph-tutorial.physics-simulation.org/pdf/SPH_Tutorial.pdf Chapter 4.4
     @ti.kernel
     def compute_pressure_forces(self):
         for p_i in range(self.ps.particle_num[None]):
             if self.ps.material[p_i] == self.ps.material_fluid:
-                self.ps.density[p_i] = ti.max(self.ps.density[p_i], self.density_0)  # Handle free surface
+                self.ps.density[p_i] = ti.max(self.ps.density[p_i], self.density_0)  # Handle free surface, Chapter 4.1
                 self.ps.pressure[p_i] = self.stiffness * (ti.pow(self.ps.density[p_i] / self.density_0, self.exponent) - 1.0)
 
         for p_i in range(self.ps.particle_num[None]):
