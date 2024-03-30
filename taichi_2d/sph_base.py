@@ -12,6 +12,7 @@ class SPHBase:
         self.mass = self.ps.m_V * self.density_0
         self.dt = 1e-3  # time step
 
+    # Kernel function from https://sph-tutorial.physics-simulation.org/pdf/SPH_Tutorial.pdf Chapter 2.2
     @ti.func
     def cubic_kernel(self, r_norm):
         res = ti.cast(0.0, ti.f32)
@@ -60,9 +61,8 @@ class SPHBase:
         return res
 
     # Finite difference approximation of the Laplacian of the velocity field
-    # grad(grad(u)) = 2(d + 2) \times \sum_{j=0}^n \frac{m_j}{\rho_j} \frac{v_{ij} \cdot r_{ij}}{r_{ij}^2 + 0.01h^2} \cdot \nabla W_{ij}
-    # From https://iopscience.iop.org/article/10.1088/0034-4885/68/8/R01/meta
-    # See https://www.bilibili.com/video/BV1mi4y1o7wz?p=6&vd_source=c88561792b6aa20d304938eb0d5a86d3 for more details
+    # From https://sph-tutorial.physics-simulation.org/pdf/SPH_Tutorial.pdf Chapter 6.2
+    # See also https://github.com/taichiCourse01/taichiCourse01/blob/main/material/10_fluid_lagrangian.pdf
     @ti.func
     def viscosity_force(self, p_i, p_j, r):
         # Compute the viscosity force contribution
@@ -72,8 +72,7 @@ class SPHBase:
                (r.norm() ** 2 + 0.01 * self.ps.support_radius ** 2) * self.cubic_kernel_derivative(r))
         return res
 
-    # https://sph-tutorial.physics-simulation.org/
-    # https://sph-tutorial.physics-simulation.org/pdf/SPH_Tutorial.pdf
+    # https://sph-tutorial.physics-simulation.org/pdf/SPH_Tutorial.pdf Chapter 5.1
     @ti.func
     def pressure_force(self, p_i, p_j, r):
         res = ti.Vector([0.0 for _ in range(self.ps.dim)])
