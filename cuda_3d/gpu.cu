@@ -190,6 +190,14 @@ __global__ void compute_forces(particle_t* parts, idx_t num_parts, double suppor
     }
 }
 
+__device__ void simulate_collision(particle_t& part, const Vector3d& normal, double distance) {
+    // Collision factor, assume roughly (1-c_f)*velocity loss after collision
+    double c_f = 0.3;
+    part.pos += normal * distance;
+    double v_dot_n = dot(part.v, normal);
+    part.v -= normal * (1 + c_f) * v_dot_n;
+}
+
 __global__ void move_particles(particle_t* parts, idx_t num_parts, double size, idx_t* parts_sorted, double dt) {
 
     idx_t tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -206,18 +214,20 @@ __global__ void move_particles(particle_t* parts, idx_t num_parts, double size, 
     part.pos.y += part.v.y * dt;
     part.pos.z += part.v.z * dt;
 
-    while (part.pos.x < 0 || part.pos.x > size) {
-        part.pos.x = part.pos.x < 0 ? -part.pos.x : 2 * size - part.pos.x;
-        part.v.x = -part.v.x;
-    }
-    while (part.pos.y < 0 || part.pos.y > size) {
-        part.pos.y = part.pos.y < 0 ? -part.pos.y : 2 * size - part.pos.y;
-        part.v.y = -part.v.y;
-    }
-    while (part.pos.z < 0 || part.pos.z > size) {
-        part.pos.z = part.pos.z < 0 ? -part.pos.z : 2 * size - part.pos.z;
-        part.v.z = -part.v.z;
-    }
+    if (part.pos.x < 0)
+        simulate_collision(part, {1, 0, 0}, -part.pos.x);
+    else if (part.pos.x > size)
+        simulate_collision(part, {-1, 0, 0}, part.pos.x - size);
+
+    if (part.pos.y < 0)
+        simulate_collision(part, {0, 1, 0}, -part.pos.y);
+    else if (part.pos.y > size)
+        simulate_collision(part, {0, -1, 0}, part.pos.y - size);
+
+    if (part.pos.z < 0)
+        simulate_collision(part, {0, 0, 1}, -part.pos.z);
+    else if (part.pos.z > size)
+        simulate_collision(part, {0, 0, -1}, part.pos.z - size);
 
     part.a.x = part.a.y = part.a.z = 0;
 }

@@ -34,6 +34,12 @@ struct Vector3d {
         y += other.y;
         z += other.z;
     }
+
+    __device__ void operator-=(const Vector3d& other) {
+        x -= other.x;
+        y -= other.y;
+        z -= other.z;
+    }
 };
 
 __device__ inline double dot(const Vector3d& a, const Vector3d& b) {

@@ -27,16 +27,13 @@ void fill_cube(std::vector<particle_t>& parts, const Vector3d& lower_corner, con
     }
 }
 
-
 void init_particles(std::vector<particle_t>& parts) {
-    fill_cube(parts, {0, 40, 0}, {30, 30, 30});
+    fill_cube(parts, {0, 40, 0}, {5, 5, 5});
 }
-
 
 void write_ply(const std::vector<particle_t>& parts, const std::string& filename) {
 
 }
-
 
 int main(int argc, char** argv) {
 
