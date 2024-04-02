@@ -25,7 +25,6 @@ __device__ idx_t get_part_bin_idx(particle_t& part, double support_radius, idx_t
     return (grid_x * grid_dim + grid_y) * grid_dim + grid_z;
 }
 
-// get bins_parts_cnt & parts_bin_idx
 __global__ void get_bins_parts_cnt(particle_t* parts, idx_t num_parts, idx_t* parts_bin_idx,
                                    idx_t* bins_parts_cnt, double support_radius, idx_t grid_dim) {
 
@@ -37,7 +36,6 @@ __global__ void get_bins_parts_cnt(particle_t* parts, idx_t num_parts, idx_t* pa
     atomicAdd(&bins_parts_cnt[part_bin_idx], 1);
 }
 
-// get parts_sorted
 __global__ void get_parts_sorted(particle_t* parts, idx_t num_parts, idx_t* parts_bin_idx,
                                  idx_t* parts_sorted, idx_t* bins_curr_pos) {
 
@@ -177,6 +175,7 @@ void init_simul(particle_t* parts, idx_t num_parts) {
 }
 
 void simul_one_step(particle_t* parts, idx_t num_parts) {
+    // See https://drive.google.com/file/d/1j5Lu3G80BgsSRyEjEBc4y5klSip1eil6/view for details about the following code
     sort_particles(parts, num_parts);
 
     compute_forces<<<cuda_blks, cuda_threads>>>(parts, num_parts, support_radius, parts_sorted, bins_begin, grid_dim);

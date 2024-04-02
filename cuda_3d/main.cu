@@ -28,7 +28,6 @@ void fill_cube(std::vector<particle_t>& parts, Vector3d lower_corner, Vector3d c
 }
 
 
-// return number of particles
 void init_particles(std::vector<particle_t>& parts) {
     fill_cube(parts, {0, 400, 0}, {300, 300, 300});
 }
@@ -53,7 +52,6 @@ int main(int argc, char** argv) {
     std::string file_prefix = "./PLY/SPH_FLUID_";
     idx_t ply_idx = 0;
 
-    // begin time counting
     auto start_time = std::chrono::steady_clock::now();
 
     init_simul(parts_gpu, num_parts);
@@ -73,7 +71,6 @@ int main(int argc, char** argv) {
     cudaDeviceSynchronize();
 
     auto end_time = std::chrono::steady_clock::now();
-    // end time counting
 
     std::chrono::duration<double> diff_time = end_time - start_time;
     double seconds = diff_time.count();
