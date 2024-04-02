@@ -7,7 +7,7 @@
 #include "happly.h"
 
 
-void fill_cube(std::vector<particle_t>& parts, Vector3d lower_corner, Vector3d cube_size) {
+void fill_cube(std::vector<particle_t>& parts, const Vector3d& lower_corner, const Vector3d& cube_size) {
     int x_num = floor(cube_size.x / (2 * particle_radius));
     int y_num = floor(cube_size.y / (2 * particle_radius));
     int z_num = floor(cube_size.z / (2 * particle_radius));
@@ -29,7 +29,7 @@ void fill_cube(std::vector<particle_t>& parts, Vector3d lower_corner, Vector3d c
 
 
 void init_particles(std::vector<particle_t>& parts) {
-    fill_cube(parts, {0, 400, 0}, {300, 300, 300});
+    fill_cube(parts, {0, 40, 0}, {30, 30, 30});
 }
 
 
