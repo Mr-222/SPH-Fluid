@@ -110,22 +110,24 @@ __device__ void apply_pressure(particle_t& particle, particle_t& neighbor) {
 
 }
 
-__device__ void apply_viscosity(particle_t& particle, particle_t& neighbor) {
-    Vector3d r = {particle.pos.x - neighbor.pos.x, particle.pos.y - neighbor.pos.y, particle.pos.z - neighbor.pos.z};
+__device__ void apply_viscosity(particle_t& particle, particle_t& neighbor, Vector3d& r) {
     Vector3d v_difference = {particle.v.x - neighbor.v.x, particle.v.y - neighbor.v.y, particle.v.z - neighbor.v.z};
     
     double v_xy = dot(v_difference, r);
-    double norm_r_squared = normSquared(r) + 0.01 * support_radius * support_radius;
+    double denominator = normSquared(r) + 0.01 * support_radius * support_radius;
     
-    Vector3d kernel_derivative_magnitude = cubic_kernel_derivative_scalar(r, support_radius);
-    
-    
+    Vector3d kernel_derivative = cubic_kernel_derivative(r, support_radius);
+    const double constant = 2 * (dim + 2) * viscosity * (mass / neighbor.density) * v_xy / denominator;
 
+    particle.v.x = particle.v.x + kernel_derivative.x * constant;
+    particle.v.y = particle.v.y + kernel_derivative.y * constant;
+    particle.v.z = particle.v.z + kernel_derivative.z * constant;
 }
 
 __device__ void apply_mutual_force(particle_t& particle, particle_t& neighbor) {
-    apply_pressure(particle, neighbor);
-    apply_viscosity(particle, neighbor);
+    Vector3d r = {particle.pos.x - neighbor.pos.x, particle.pos.y - neighbor.pos.y, particle.pos.z - neighbor.pos.z};
+    apply_pressure(particle, neighbor,r);
+    apply_viscosity(particle, neighbor,r);
 }
 
 __device__ void apply_bin_force(particle_t& part, idx_t bin_idx, particle_t* parts,
