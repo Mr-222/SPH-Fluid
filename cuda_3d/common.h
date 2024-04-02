@@ -29,9 +29,11 @@ struct particle_t {
     Vector3d pos;
     Vector3d v;
     Vector3d a;
+    double density;
+    double pressure;
 
-    particle_t(const Vector3d& my_pos, const Vector3d& my_v, const Vector3d& my_a):
-    pos(my_pos), v(my_v), a(my_a) {}
+    particle_t(const Vector3d& my_pos, const Vector3d& my_v, const Vector3d& my_a, double my_density, double my_pressure)
+    : pos(my_pos), v(my_v), a(my_a), density(my_density), pressure(my_pressure) {}
 };
 
 void init_simul(particle_t* parts, idx_t num_parts);
