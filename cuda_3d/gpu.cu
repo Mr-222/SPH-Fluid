@@ -1,6 +1,7 @@
 #include <cub/cub.cuh>
 
 #include "common.h"
+#include "sph.cuh"
 
 constexpr idx_t cuda_threads = 256;
 idx_t cuda_blks;
@@ -59,81 +60,83 @@ void sort_particles(particle_t* parts, idx_t num_parts) {
     get_parts_sorted<<<cuda_blks, cuda_threads>>>(parts, num_parts, parts_bin_idx, parts_sorted, bins_curr_pos);
 }
 
+__global__ void update_densities(particle_t* parts, idx_t num_parts, double h, idx_t* parts_sorted, idx_t* bins_begin, idx_t grid_dim) {
 
-__device__ void apply_gravity(particle_t& particle) {
-    particle.a.z -= gravity;
-}
+    idx_t tid = blockIdx.x * blockDim.x + threadIdx.x;
+    if (tid >= num_parts) return;
 
-__device__ double dot(const Vector3d& a, const Vector3d& b) {
-    return a.x * b.x + a.y * b.y + a.z * b.z;
-}
+    idx_t part_idx = parts_sorted[tid];
+    particle_t& part = parts[part_idx];
+    part.density = 0;
 
-__device__ double normSquared(const Vector3d& r) {
-    return r.x * r.x + r.y * r.y + r.z * r.z;
-}
+    idx_t bin_grid_x = floor(part.pos.x / h);
+    idx_t bin_grid_y = floor(part.pos.y / h);
+    idx_t bin_grid_z = floor(part.pos.z / h);
 
-__device__ double norm(const Vector3d& r) {
-    return sqrt(r.x * r.x + r.y * r.y + r.z * r.z);
-}
+    for (idx_t i = -1; i <= 1; ++i) {
+        for (idx_t j = -1; j <= 1; ++j) {
+            for (idx_t k = -1; k <= 1; ++k) {
+                idx_t apply_bin_grid_x = bin_grid_x + i;
+                idx_t apply_bin_grid_y = bin_grid_y + j;
+                idx_t apply_bin_grid_z = bin_grid_z + k;
+                if (apply_bin_grid_x < 0 || apply_bin_grid_x >= grid_dim ||
+                    apply_bin_grid_y < 0 || apply_bin_grid_y >= grid_dim ||
+                    apply_bin_grid_z < 0 || apply_bin_grid_z >= grid_dim) {
+                    continue;
+                }
 
-__device__ Vector3d cubic_kernel_derivative(Vector3d& r, double h) {
-    // Constants
-    double pi = 3.1415926;
-    double k = 8.0 / pi;
-    k = 6.0 * k / (h * h * h);
+                idx_t apply_bin_idx = (apply_bin_grid_x * grid_dim + apply_bin_grid_y) * grid_dim + apply_bin_grid_z;
+                idx_t bin_begin = bins_begin[apply_bin_idx];
+                idx_t bin_end = bins_begin[apply_bin_idx + 1];
+                for (idx_t l = bin_begin; l < bin_end; ++l) {
+                    idx_t neighbor_idx = parts_sorted[l];
+                    particle_t& neighbor = parts[neighbor_idx];
+                    if (part == neighbor) continue;
 
-    // Calculate norm of r
-    double r_norm = norm(r);
-    double q = r_norm / h;
-    
-    // Initialize the result vector
-    Vector3d res = {0.0, 0.0, 0.0};
-
-    if (r_norm > 1e-5 && q <= 1.0) {
-        Vector3d grad_q = {r.x / (r_norm * h), r.y / (r_norm * h), r.z / (r_norm * h)};
-
-        if (q <= 0.5) {
-            res.x = k * q * (3.0 * q - 2.0) * grad_q.x;
-            res.y = k * q * (3.0 * q - 2.0) * grad_q.y;
-            res.z = k * q * (3.0 * q - 2.0) * grad_q.z;
-        } else {
-            double factor = 1.0 - q;
-            res.x = k * (-factor * factor) * grad_q.x;
-            res.y = k * (-factor * factor) * grad_q.y;
-            res.z = k * (-factor * factor) * grad_q.z;
+                    Vector3d r = {part.pos.x - neighbor.pos.x, part.pos.y - neighbor.pos.y, part.pos.z - neighbor.pos.z};
+                    double r_norm = norm(r);
+                    if (r_norm < h) {
+                        part.density += particle_mass * cubic_kernel(r_norm, h);
+                    }
+                }
+            }
         }
     }
-    return res
+}
+
+__global__ void update_pressures(particle_t* parts, idx_t num_parts) {
+    idx_t tid = blockIdx.x * blockDim.x + threadIdx.x;
+    if (tid >= num_parts) return;
+
+    particle_t& part = parts[tid];
+    part.density = max(part.density, density_0); // Handle free surface
+    part.pressure = k1 * (pow(part.density / density_0, k2) - 1.0);
+}
+
+__device__ void apply_gravity(particle_t& particle) {
+    particle.a.z += gravity;
 }
 
 __device__ void apply_pressure(particle_t& particle, particle_t& neighbor,Vector3d& r) {
     Vector3d kernel_derivative = cubic_kernel_derivative(r, support_radius);
-    Vector3d res = {0.0, 0.0, 0.0};
-    bool isBoundary = false;
-    if(isBoundary){
 
-    }
-    else{
-        double constant = density_0 * particle_volume * (particle.pressure / (particle.density * particle.density) + neighbor.pressure / (neighbor.density * neighbor.density))
-        particle.v.x = kernel_derivative.x * constant;
-        particle.v.y = kernel_derivative.y * constant;
-        particle.v.z = kernel_derivative.z * constant;
-    }
+    // TODO: Handle boundary particles
 
+    double partial_a = density_0 * particle_volume * (particle.pressure / (particle.density * particle.density) + neighbor.pressure / (neighbor.density * neighbor.density));
+
+    particle.a += kernel_derivative * partial_a;
 }
 
 __device__ void apply_viscosity(particle_t& particle, particle_t& neighbor, Vector3d& r) {
     Vector3d v_difference = {particle.v.x - neighbor.v.x, particle.v.y - neighbor.v.y, particle.v.z - neighbor.v.z};
     
-    double v_xy = dot(v_difference, r);
+    double v_dot_x = dot(v_difference, r);
     double denominator = normSquared(r) + 0.01 * support_radius * support_radius;
     
     Vector3d kernel_derivative = cubic_kernel_derivative(r, support_radius);
-    const double constant = 2 * (dim + 2) * viscosity * (mass / neighbor.density) * v_xy / denominator;
+    double partial_a = 2 * (dim + 2) * viscosity * (particle_mass / neighbor.density) * v_dot_x / denominator;
 
-    particle.v.x = kernel_derivative.x * constant;
-    particle.v.y = kernel_derivative.y * constant;
-    particle.v.z = kernel_derivative.z * constant;
+    particle.a += kernel_derivative * partial_a;
 }
 
 __device__ void apply_mutual_force(particle_t& particle, particle_t& neighbor) {
@@ -149,7 +152,8 @@ __device__ void apply_bin_force(particle_t& part, idx_t bin_idx, particle_t* par
     idx_t bin_end = bins_begin[bin_idx + 1];
     for (idx_t i = bin_begin; i < bin_end; ++i) {
         idx_t part_idx = parts_sorted[i];
-        apply_mutual_force(part, parts[part_idx]);
+        if (part != parts[part_idx])
+            apply_mutual_force(part, parts[part_idx]);
     }
 }
 
@@ -215,6 +219,7 @@ __global__ void move_particles(particle_t* parts, idx_t num_parts, double size, 
         part.v.z = -part.v.z;
     }
 
+    part.a.x = part.a.y = part.a.z = 0;
 }
 
 void init_simul(particle_t* parts, idx_t num_parts) {
@@ -242,6 +247,10 @@ void init_simul(particle_t* parts, idx_t num_parts) {
 void simul_one_step(particle_t* parts, idx_t num_parts) {
     // See https://drive.google.com/file/d/1j5Lu3G80BgsSRyEjEBc4y5klSip1eil6/view for details about the following code
     sort_particles(parts, num_parts);
+
+    update_densities<<<cuda_blks, cuda_threads>>>(parts, num_parts, support_radius, parts_sorted, bins_begin, grid_dim);
+
+    update_pressures<<<cuda_blks, cuda_threads>>>(parts, num_parts);
 
     compute_forces<<<cuda_blks, cuda_threads>>>(parts, num_parts, support_radius, parts_sorted, bins_begin, grid_dim);
 
