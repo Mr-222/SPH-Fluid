@@ -4,6 +4,7 @@
 using idx_t = int;
 
 constexpr idx_t num_steps = 1000;
+constexpr idx_t dim = 3;
 constexpr idx_t check_steps = 10;
 constexpr double delta_time = 2e-4;
 
@@ -15,7 +16,7 @@ constexpr double density_0 = 1000.0;
 constexpr double tank_size = 100.0;
 constexpr double particle_radius = tank_size / 1000;
 constexpr double support_radius = 4 * particle_radius;
-constexpr double particle_volume = 4 * particle_radius * particle_radius * particle_radius;
+constexpr double particle_volume = (4 * 3.14 * particle_radius * particle_radius * particle_radius) / 3;
 constexpr double particle_mass = particle_volume * density_0;
 
 struct Vector3d {
