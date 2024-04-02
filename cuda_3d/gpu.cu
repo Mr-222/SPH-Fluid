@@ -19,7 +19,7 @@ void* temp_mem;
 size_t temp_mem_size;
 
 
-__device__ idx_t get_part_bin_idx(particle_t& part, double support_radius, idx_t grid_dim) {
+__device__ idx_t get_part_bin_idx(particle_t& part, float support_radius, idx_t grid_dim) {
     idx_t grid_x = floor(part.pos.x / support_radius);
     idx_t grid_y = floor(part.pos.y / support_radius);
     idx_t grid_z = floor(part.pos.z / support_radius);
@@ -27,7 +27,7 @@ __device__ idx_t get_part_bin_idx(particle_t& part, double support_radius, idx_t
 }
 
 __global__ void get_bins_parts_cnt(particle_t* parts, idx_t num_parts, idx_t* parts_bin_idx,
-                                   idx_t* bins_parts_cnt, double support_radius, idx_t grid_dim) {
+                                   idx_t* bins_parts_cnt, float support_radius, idx_t grid_dim) {
 
     idx_t tid = blockIdx.x * blockDim.x + threadIdx.x;
     if (tid >= num_parts) return;
@@ -60,7 +60,7 @@ void sort_particles(particle_t* parts, idx_t num_parts) {
     get_parts_sorted<<<cuda_blks, cuda_threads>>>(parts, num_parts, parts_bin_idx, parts_sorted, bins_curr_pos);
 }
 
-__global__ void update_densities(particle_t* parts, idx_t num_parts, double h, idx_t* parts_sorted, idx_t* bins_begin, idx_t grid_dim) {
+__global__ void update_densities(particle_t* parts, idx_t num_parts, float h, idx_t* parts_sorted, idx_t* bins_begin, idx_t grid_dim) {
 
     idx_t tid = blockIdx.x * blockDim.x + threadIdx.x;
     if (tid >= num_parts) return;
@@ -93,8 +93,8 @@ __global__ void update_densities(particle_t* parts, idx_t num_parts, double h, i
                     particle_t& neighbor = parts[neighbor_idx];
                     if (part == neighbor) continue;
 
-                    Vector3d r = {part.pos.x - neighbor.pos.x, part.pos.y - neighbor.pos.y, part.pos.z - neighbor.pos.z};
-                    double r_norm = norm(r);
+                    Vector3f r = {part.pos.x - neighbor.pos.x, part.pos.y - neighbor.pos.y, part.pos.z - neighbor.pos.z};
+                    float r_norm = norm(r);
                     if (r_norm < h) {
                         part.density += particle_mass * cubic_kernel(r_norm, h);
                     }
@@ -117,30 +117,30 @@ __device__ void apply_gravity(particle_t& particle) {
     particle.a.z += gravity;
 }
 
-__device__ void apply_pressure(particle_t& particle, particle_t& neighbor,Vector3d& r) {
-    Vector3d kernel_derivative = cubic_kernel_derivative(r, support_radius);
+__device__ void apply_pressure(particle_t& particle, particle_t& neighbor,Vector3f& r) {
+    Vector3f kernel_derivative = cubic_kernel_derivative(r, support_radius);
 
     // TODO: Handle boundary particles
 
-    double partial_a = density_0 * particle_volume * (particle.pressure / (particle.density * particle.density) + neighbor.pressure / (neighbor.density * neighbor.density));
+    float partial_a = density_0 * particle_volume * (particle.pressure / (particle.density * particle.density) + neighbor.pressure / (neighbor.density * neighbor.density));
 
     particle.a += kernel_derivative * partial_a;
 }
 
-__device__ void apply_viscosity(particle_t& particle, particle_t& neighbor, Vector3d& r) {
-    Vector3d v_difference = {particle.v.x - neighbor.v.x, particle.v.y - neighbor.v.y, particle.v.z - neighbor.v.z};
+__device__ void apply_viscosity(particle_t& particle, particle_t& neighbor, Vector3f& r) {
+    Vector3f v_difference = {particle.v.x - neighbor.v.x, particle.v.y - neighbor.v.y, particle.v.z - neighbor.v.z};
     
-    double v_dot_x = dot(v_difference, r);
-    double denominator = normSquared(r) + 0.01 * support_radius * support_radius;
+    float v_dot_x = dot(v_difference, r);
+    float denominator = normSquared(r) + 0.01 * support_radius * support_radius;
     
-    Vector3d kernel_derivative = cubic_kernel_derivative(r, support_radius);
-    double partial_a = 2 * (dim + 2) * viscosity * (particle_mass / neighbor.density) * v_dot_x / denominator;
+    Vector3f kernel_derivative = cubic_kernel_derivative(r, support_radius);
+    float partial_a = 2 * (dim + 2) * viscosity * (particle_mass / neighbor.density) * v_dot_x / denominator;
 
     particle.a += kernel_derivative * partial_a;
 }
 
 __device__ void apply_mutual_force(particle_t& particle, particle_t& neighbor) {
-    Vector3d r = {particle.pos.x - neighbor.pos.x, particle.pos.y - neighbor.pos.y, particle.pos.z - neighbor.pos.z};
+    Vector3f r = {particle.pos.x - neighbor.pos.x, particle.pos.y - neighbor.pos.y, particle.pos.z - neighbor.pos.z};
     apply_pressure(particle, neighbor,r);
     apply_viscosity(particle, neighbor,r);
 }
@@ -157,7 +157,7 @@ __device__ void apply_bin_force(particle_t& part, idx_t bin_idx, particle_t* par
     }
 }
 
-__global__ void compute_forces(particle_t* parts, idx_t num_parts, double support_radius,
+__global__ void compute_forces(particle_t* parts, idx_t num_parts, float support_radius,
                                idx_t* parts_sorted, idx_t* bins_begin, idx_t grid_dim) {
 
     idx_t tid = blockIdx.x * blockDim.x + threadIdx.x;
@@ -190,15 +190,15 @@ __global__ void compute_forces(particle_t* parts, idx_t num_parts, double suppor
     }
 }
 
-__device__ void simulate_collision(particle_t& part, const Vector3d& normal, double distance) {
+__device__ void simulate_collision(particle_t& part, const Vector3f& normal, float distance) {
     // Collision factor, assume roughly (1-c_f)*velocity loss after collision
-    double c_f = 0.3;
+    float c_f = 0.3;
     part.pos += normal * distance;
-    double v_dot_n = dot(part.v, normal);
+    float v_dot_n = dot(part.v, normal);
     part.v -= normal * (1 + c_f) * v_dot_n;
 }
 
-__global__ void move_particles(particle_t* parts, idx_t num_parts, double size, idx_t* parts_sorted, double dt) {
+__global__ void move_particles(particle_t* parts, idx_t num_parts, float size, idx_t* parts_sorted, float dt) {
 
     idx_t tid = threadIdx.x + blockIdx.x * blockDim.x;
     if (tid >= num_parts) return;

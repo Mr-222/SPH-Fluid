@@ -7,7 +7,7 @@
 #include "happly.h"
 
 
-void fill_cube(std::vector<particle_t>& parts, const Vector3d& lower_corner, const Vector3d& cube_size) {
+void fill_cube(std::vector<particle_t>& parts, const Vector3f& lower_corner, const Vector3f& cube_size) {
     int x_num = floor(cube_size.x / (2 * particle_radius));
     int y_num = floor(cube_size.y / (2 * particle_radius));
     int z_num = floor(cube_size.z / (2 * particle_radius));
@@ -16,11 +16,11 @@ void fill_cube(std::vector<particle_t>& parts, const Vector3d& lower_corner, con
     for (int i = 0; i < x_num; ++i) {
         for (int j = 0; j < y_num; ++j) {
             for (int k = 0; k < z_num; ++k) {
-                Vector3d pos = {lower_corner.x + 2 * particle_radius * i + particle_radius,
+                Vector3f pos = {lower_corner.x + 2 * particle_radius * i + particle_radius,
                                 lower_corner.y + 2 * particle_radius * j + particle_radius,
                                 lower_corner.z + 2 * particle_radius * k + particle_radius};
-                Vector3d velocity = {0, 0, 0};
-                Vector3d acceleration = {0, 0, 0};
+                Vector3f velocity = {0, 0, 0};
+                Vector3f acceleration = {0, 0, 0};
                 parts.emplace_back(pos, velocity, acceleration, 1000.0, 0.0, true);
             }
         }
@@ -28,7 +28,7 @@ void fill_cube(std::vector<particle_t>& parts, const Vector3d& lower_corner, con
 }
 
 void init_particles(std::vector<particle_t>& parts) {
-    fill_cube(parts, {0, 40, 0}, {5, 5, 5});
+    fill_cube(parts, {0, 40, 0}, {10, 10, 10});
 }
 
 void write_ply(const std::vector<particle_t>& parts, const std::string& filename) {
