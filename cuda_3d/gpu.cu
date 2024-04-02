@@ -64,11 +64,62 @@ __device__ void apply_gravity(particle_t& particle) {
     particle.a.z -= gravity;
 }
 
+__device__ double dot(const Vector3d& a, const Vector3d& b) {
+    return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+
+__device__ double normSquared(const Vector3d& r) {
+    return r.x * r.x + r.y * r.y + r.z * r.z;
+}
+
+__device__ double norm(const Vector3d& r) {
+    return sqrt(r.x * r.x + r.y * r.y + r.z * r.z);
+}
+
+__device__ Vector3d cubic_kernel_derivative(Vector3d& r, double h) {
+    // Constants
+    double pi = 3.141592653589793;
+    double k = 8.0 / pi;
+    k = 6.0 * k / (h * h * h);
+
+    // Calculate norm of r
+    double r_norm = norm(r);
+    double q = r_norm / h;
+    
+    // Initialize the result vector
+    Vector3d res = {0.0, 0.0, 0.0};
+
+    if (r_norm > 1e-5 && q <= 1.0) {
+        Vector3d grad_q = {r.x / (r_norm * h), r.y / (r_norm * h), r.z / (r_norm * h)};
+
+        if (q <= 0.5) {
+            res.x = k * q * (3.0 * q - 2.0) * grad_q.x;
+            res.y = k * q * (3.0 * q - 2.0) * grad_q.y;
+            res.z = k * q * (3.0 * q - 2.0) * grad_q.z;
+        } else {
+            double factor = 1.0 - q;
+            res.x = k * (-factor * factor) * grad_q.x;
+            res.y = k * (-factor * factor) * grad_q.y;
+            res.z = k * (-factor * factor) * grad_q.z;
+        }
+    }
+    return res
+}
+
 __device__ void apply_pressure(particle_t& particle, particle_t& neighbor) {
 
 }
 
 __device__ void apply_viscosity(particle_t& particle, particle_t& neighbor) {
+    Vector3d r = {particle.pos.x - neighbor.pos.x, particle.pos.y - neighbor.pos.y, particle.pos.z - neighbor.pos.z};
+    Vector3d v_difference = {particle.v.x - neighbor.v.x, particle.v.y - neighbor.v.y, particle.v.z - neighbor.v.z};
+    
+    double v_xy = dot(v_difference, r);
+    double norm_r_squared = normSquared(r) + 0.01 * support_radius * support_radius;
+    
+    Vector3d kernel_derivative_magnitude = cubic_kernel_derivative_scalar(r, support_radius);
+    
+    
 
 }
 
