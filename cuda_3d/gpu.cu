@@ -81,9 +81,7 @@ __global__ void update_densities(particle_t* parts, idx_t num_parts, float h, id
                 idx_t apply_bin_grid_z = bin_grid_z + k;
                 if (apply_bin_grid_x < 0 || apply_bin_grid_x >= grid_dim ||
                     apply_bin_grid_y < 0 || apply_bin_grid_y >= grid_dim ||
-                    apply_bin_grid_z < 0 || apply_bin_grid_z >= grid_dim) {
-                    continue;
-                }
+                    apply_bin_grid_z < 0 || apply_bin_grid_z >= grid_dim) continue;
 
                 idx_t apply_bin_idx = (apply_bin_grid_x * grid_dim + apply_bin_grid_y) * grid_dim + apply_bin_grid_z;
                 idx_t bin_begin = bins_begin[apply_bin_idx];
@@ -102,6 +100,7 @@ __global__ void update_densities(particle_t* parts, idx_t num_parts, float h, id
             }
         }
     }
+    part.density = max(part.density, density_0); // Handle free surface
 }
 
 __global__ void update_pressures(particle_t* parts, idx_t num_parts) {
@@ -109,11 +108,10 @@ __global__ void update_pressures(particle_t* parts, idx_t num_parts) {
     if (tid >= num_parts) return;
 
     particle_t& part = parts[tid];
-    part.density = max(part.density, density_0); // Handle free surface
     part.pressure = k1 * (pow(part.density / density_0, k2) - 1.0);
 }
 
-__device__ void apply_gravity(particle_t& particle) {
+__device__ void inline apply_gravity(particle_t& particle) {
     particle.a.z += gravity;
 }
 
@@ -152,8 +150,9 @@ __device__ void apply_bin_force(particle_t& part, idx_t bin_idx, particle_t* par
     idx_t bin_end = bins_begin[bin_idx + 1];
     for (idx_t i = bin_begin; i < bin_end; ++i) {
         idx_t part_idx = parts_sorted[i];
-        if (part != parts[part_idx])
-            apply_mutual_force(part, parts[part_idx]);
+        particle_t& neighbor_part = parts[part_idx];
+        if (part != neighbor_part)
+            apply_mutual_force(part, neighbor_part);
     }
 }
 
@@ -179,10 +178,9 @@ __global__ void compute_forces(particle_t* parts, idx_t num_parts, float support
                 idx_t apply_bin_grid_y = bin_grid_y + j;
                 idx_t apply_bin_grid_z = bin_grid_z + k;
                 if (apply_bin_grid_x < 0 || apply_bin_grid_x >= grid_dim ||
-                apply_bin_grid_y < 0 || apply_bin_grid_y >= grid_dim ||
-                apply_bin_grid_z < 0 || apply_bin_grid_z >= grid_dim) {
-                    continue;
-                }
+                    apply_bin_grid_y < 0 || apply_bin_grid_y >= grid_dim ||
+                    apply_bin_grid_z < 0 || apply_bin_grid_z >= grid_dim) continue;
+
                 int apply_bin_idx = (apply_bin_grid_x * grid_dim + apply_bin_grid_y) * grid_dim + apply_bin_grid_z;
                 apply_bin_force(part, apply_bin_idx, parts, parts_sorted, bins_begin);
             }
@@ -255,16 +253,21 @@ void init_simul(particle_t* parts, idx_t num_parts) {
 }
 
 void simul_one_step(particle_t* parts, idx_t num_parts) {
-    // See https://drive.google.com/file/d/1j5Lu3G80BgsSRyEjEBc4y5klSip1eil6/view for details about the following code
+    // See https://drive.google.com/file/d/1j5Lu3G80BgsSRyEjEBc4y5klSip1eil6/view for details
     sort_particles(parts, num_parts);
+    cudaDeviceSynchronize();
 
     update_densities<<<cuda_blks, cuda_threads>>>(parts, num_parts, support_radius, parts_sorted, bins_begin, grid_dim);
+    cudaDeviceSynchronize();
 
     update_pressures<<<cuda_blks, cuda_threads>>>(parts, num_parts);
+    cudaDeviceSynchronize();
 
     compute_forces<<<cuda_blks, cuda_threads>>>(parts, num_parts, support_radius, parts_sorted, bins_begin, grid_dim);
+    cudaDeviceSynchronize();
 
     move_particles<<<cuda_blks, cuda_threads>>>(parts, num_parts, tank_size, parts_sorted, delta_time);
+    cudaDeviceSynchronize();
 }
 
 void clear_simul() {

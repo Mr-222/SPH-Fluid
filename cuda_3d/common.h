@@ -66,6 +66,9 @@ struct particle_t {
     Vector3f a;
     bool is_fluid;
 
+    particle_t(const Vector3f& my_pos, const Vector3f& my_v, const Vector3f& my_a, float my_density, float my_pressure, bool im_fluid)
+    : pos(my_pos), v(my_v), a(my_a), density(my_density), pressure(my_pressure), is_fluid(im_fluid) {}
+
     __device__ bool operator== (const particle_t& other) const {
         return pos.x == other.pos.x && pos.y == other.pos.y && pos.z == other.pos.z;
     }
@@ -73,9 +76,6 @@ struct particle_t {
     __device__ bool operator!= (const particle_t& other) const {
         return !(*this == other);
     }
-
-    particle_t(const Vector3f& my_pos, const Vector3f& my_v, const Vector3f& my_a, float my_density, float my_pressure, bool im_fluid)
-    : pos(my_pos), v(my_v), a(my_a), density(my_density), pressure(my_pressure), is_fluid(im_fluid) {}
 };
 
 void init_simul(particle_t* parts, idx_t num_parts);

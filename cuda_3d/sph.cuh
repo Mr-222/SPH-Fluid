@@ -8,7 +8,7 @@
 #include "common.h"
 
 __device__ float cubic_kernel(float r_norm, float h) {
-    float k = 8.0 / PI;
+    float k = 8.0f / PI;
     k = k / (h * h * h);
     float q = r_norm / h;
 
@@ -26,7 +26,7 @@ __device__ float cubic_kernel(float r_norm, float h) {
 __device__ Vector3f cubic_kernel_derivative(Vector3f& r, float h) {
     // Constants
     float k = 8.0 / PI;
-    k = 6.0 * k / (h * h * h);
+    k = 6.0f * k / (h * h * h);
 
     // Calculate norm of r
     float r_norm = norm(r);

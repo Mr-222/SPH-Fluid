@@ -55,13 +55,13 @@ int main(int argc, char** argv) {
 
     for (idx_t step = 0; step < num_steps; ++step) {
         simul_one_step(parts_gpu, num_parts);
-        cudaDeviceSynchronize();
 
-        if (step % check_steps == 0) {
-            cudaMemcpy(parts.data(), parts_gpu, num_parts * sizeof(particle_t), cudaMemcpyDeviceToHost);
-            std::string filename = file_prefix + std::to_string(ply_idx++);
-            write_ply(parts, filename);
-        }
+        // TODO: Write to .ply file every frame
+//        if (step % check_steps == 0) {
+//            cudaMemcpy(parts.data(), parts_gpu, num_parts * sizeof(particle_t), cudaMemcpyDeviceToHost);
+//            std::string filename = file_prefix + std::to_string(ply_idx++);
+//            write_ply(parts, filename);
+//        }
     }
 
     clear_simul();
