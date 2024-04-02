@@ -106,7 +106,19 @@ __device__ Vector3d cubic_kernel_derivative(Vector3d& r, double h) {
     return res
 }
 
-__device__ void apply_pressure(particle_t& particle, particle_t& neighbor) {
+__device__ void apply_pressure(particle_t& particle, particle_t& neighbor,Vector3d& r) {
+    Vector3d kernel_derivative = cubic_kernel_derivative(r, support_radius);
+    Vector3d res = {0.0, 0.0, 0.0};
+    bool isBoundary = false;
+    if(isBoundary){
+
+    }
+    else{
+        double constant = density_0 * particle_volume * (particle.pressure / (particle.density * particle.density) + neighbor.pressure / (neighbor.density * neighbor.density))
+        particle.v.x = kernel_derivative.x * constant;
+        particle.v.y = kernel_derivative.y * constant;
+        particle.v.z = kernel_derivative.z * constant;
+    }
 
 }
 
@@ -119,9 +131,9 @@ __device__ void apply_viscosity(particle_t& particle, particle_t& neighbor, Vect
     Vector3d kernel_derivative = cubic_kernel_derivative(r, support_radius);
     const double constant = 2 * (dim + 2) * viscosity * (mass / neighbor.density) * v_xy / denominator;
 
-    particle.v.x = particle.v.x + kernel_derivative.x * constant;
-    particle.v.y = particle.v.y + kernel_derivative.y * constant;
-    particle.v.z = particle.v.z + kernel_derivative.z * constant;
+    particle.v.x = kernel_derivative.x * constant;
+    particle.v.y = kernel_derivative.y * constant;
+    particle.v.z = kernel_derivative.z * constant;
 }
 
 __device__ void apply_mutual_force(particle_t& particle, particle_t& neighbor) {
