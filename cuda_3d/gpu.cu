@@ -78,7 +78,7 @@ __device__ double norm(const Vector3d& r) {
 
 __device__ Vector3d cubic_kernel_derivative(Vector3d& r, double h) {
     // Constants
-    double pi = 3.141592653589793;
+    double pi = 3.1415926;
     double k = 8.0 / pi;
     k = 6.0 * k / (h * h * h);
 
