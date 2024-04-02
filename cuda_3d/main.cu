@@ -2,9 +2,11 @@
 #include <cmath>
 #include <vector>
 #include <chrono>
+#include <cuda.h>
 
 #include "common.h"
 #include "happly.h"
+
 
 
 void fill_cube(std::vector<particle_t>& parts, const Vector3d& lower_corner, const Vector3d& cube_size) {
@@ -21,7 +23,7 @@ void fill_cube(std::vector<particle_t>& parts, const Vector3d& lower_corner, con
                                 lower_corner.z + 2 * particle_radius * k + particle_radius};
                 Vector3d velocity = {0, 0, 0};
                 Vector3d acceleration = {0, 0, 0};
-                parts.emplace_back(pos, velocity, acceleration);
+                parts.emplace_back(pos, velocity, acceleration,1000.0,0.0);
             }
         }
     }
