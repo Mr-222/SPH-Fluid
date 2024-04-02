@@ -31,6 +31,8 @@ __pycache__/
 # Distribution / packaging
 .Python
 build/
+cmake-build-debug-visual-studio/
+cmake-release-debug-visual-studio/
 develop-eggs/
 dist/
 downloads/
