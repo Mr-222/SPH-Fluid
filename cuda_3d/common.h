@@ -15,7 +15,7 @@ constexpr float k2 = 7.0; // stiffness constant2
 constexpr float viscosity = 0.05;
 constexpr float density_0 = 1000.0;
 
-constexpr float tank_size = 20.0;
+constexpr float tank_size = 10.0;
 constexpr float particle_radius = 0.05;
 constexpr float support_radius = 4.0 * particle_radius;
 constexpr float particle_volume = (4.0 * 3.14 * particle_radius * particle_radius * particle_radius) / 3.0;

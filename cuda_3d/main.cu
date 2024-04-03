@@ -28,7 +28,7 @@ void fill_cube(std::vector<particle_t>& parts, const Vector3f& lower_corner, con
 }
 
 void init_particles(std::vector<particle_t>& parts) {
-    fill_cube(parts, {0, 2, 0}, {10, 10, 10});
+    fill_cube(parts, {0, 2, 0}, {5, 5, 5});
 }
 
 void save_point_cloud_data(const std::vector<particle_t>& parts, const std::string& path) {
