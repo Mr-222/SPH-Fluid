@@ -59,12 +59,14 @@ int main(int argc, char** argv) {
 
     init_simul(parts_gpu, num_parts);
 
+    int frame_number = 0;
     for (idx_t step = 0; step < num_steps; ++step) {
         simul_one_step(parts_gpu, num_parts);
 
         if (step % check_steps == 0) {
             cudaMemcpy(parts.data(), parts_gpu, num_parts * sizeof(particle_t), cudaMemcpyDeviceToHost);
-            save_point_cloud_data(parts, file_prefix + std::to_string(step) + ".ply");
+            save_point_cloud_data(parts, file_prefix + std::to_string(frame_number) + ".ply");
+            frame_number++;
         }
     }
 
