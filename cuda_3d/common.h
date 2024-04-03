@@ -4,7 +4,8 @@
 #include <cstdint>
 using idx_t = int;
 
-constexpr idx_t num_steps = 1000;
+constexpr int num_steps = 10000;
+constexpr int check_steps = 10;
 constexpr idx_t dim = 3;
 constexpr float PI = 3.14159265358979323846;
 constexpr float delta_time = 1e-3;

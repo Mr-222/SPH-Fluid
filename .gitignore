@@ -32,7 +32,7 @@ __pycache__/
 .Python
 build/
 cmake-build-debug-visual-studio/
-cmake-release-debug-visual-studio/
+cmake-build-release-visual-studio/
 develop-eggs/
 dist/
 downloads/
