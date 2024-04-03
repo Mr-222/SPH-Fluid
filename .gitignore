@@ -133,3 +133,6 @@ venv.bak/
 .mypy_cache/
 .dmypy.json
 dmypy.json
+
+# Generated point cloud data
+*.ply

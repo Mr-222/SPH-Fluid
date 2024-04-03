@@ -16,9 +16,9 @@ void fill_cube(std::vector<particle_t>& parts, const Vector3f& lower_corner, con
     for (int i = 0; i < x_num; ++i) {
         for (int j = 0; j < y_num; ++j) {
             for (int k = 0; k < z_num; ++k) {
-                Vector3f pos = {lower_corner.x + 2 * particle_radius * i + particle_radius,
-                                lower_corner.y + 2 * particle_radius * j + particle_radius,
-                                lower_corner.z + 2 * particle_radius * k + particle_radius};
+                Vector3f pos = {lower_corner.x + 2 * particle_radius * static_cast<float>(i) + particle_radius,
+                                lower_corner.y + 2 * particle_radius * static_cast<float>(j) + particle_radius,
+                                lower_corner.z + 2 * particle_radius * static_cast<float>(k) + particle_radius};
                 Vector3f velocity = {0, 0, 0};
                 Vector3f acceleration = {0, 0, 0};
                 parts.emplace_back(pos, velocity, acceleration, 1000.0, 0.0, true);
@@ -28,11 +28,18 @@ void fill_cube(std::vector<particle_t>& parts, const Vector3f& lower_corner, con
 }
 
 void init_particles(std::vector<particle_t>& parts) {
-    fill_cube(parts, {0, 40, 0}, {10, 10, 10});
+    fill_cube(parts, {0, 40, 0}, {30, 30, 30});
 }
 
-void write_ply(const std::vector<particle_t>& parts, const std::string& filename) {
+void save_point_cloud_data(const std::vector<particle_t>& parts, const std::string& path) {
+    happly::PLYData plyOut;
+    std::vector<std::array<double, 3>> points;
 
+    for (const auto& part : parts)
+        points.push_back({part.pos.x, part.pos.y, part.pos.z});
+    plyOut.addVertexPositions(points);
+
+    plyOut.write(path, happly::DataFormat::ASCII);
 }
 
 int main(int argc, char** argv) {
@@ -46,8 +53,7 @@ int main(int argc, char** argv) {
     cudaMalloc(&parts_gpu, num_parts * sizeof(particle_t));
     cudaMemcpy(parts_gpu, parts.data(), num_parts * sizeof(particle_t), cudaMemcpyHostToDevice);
 
-    std::string file_prefix = "./PLY/SPH_FLUID_";
-    idx_t ply_idx = 0;
+    std::string file_prefix = "../point_cloud_data/";
 
     auto start_time = std::chrono::steady_clock::now();
 
@@ -55,13 +61,8 @@ int main(int argc, char** argv) {
 
     for (idx_t step = 0; step < num_steps; ++step) {
         simul_one_step(parts_gpu, num_parts);
-
-        // TODO: Write to .ply file every frame
-//        if (step % check_steps == 0) {
-//            cudaMemcpy(parts.data(), parts_gpu, num_parts * sizeof(particle_t), cudaMemcpyDeviceToHost);
-//            std::string filename = file_prefix + std::to_string(ply_idx++);
-//            write_ply(parts, filename);
-//        }
+        cudaMemcpy(parts.data(), parts_gpu, num_parts * sizeof(particle_t), cudaMemcpyDeviceToHost);
+        save_point_cloud_data(parts, file_prefix + std::to_string(step) + ".ply");
     }
 
     clear_simul();
