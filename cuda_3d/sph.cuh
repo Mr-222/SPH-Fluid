@@ -17,6 +17,8 @@ __device__ float cubic_kernel(float r_norm, float h) {
         else
             return k * (2.0 * pow(1.0 - q, 3));
     }
+
+    return 0.0;
 }
 
 __device__ Vector3f cubic_kernel_derivative(Vector3f& r, float h) {
