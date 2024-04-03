@@ -6,9 +6,8 @@ using idx_t = int;
 
 constexpr idx_t num_steps = 1000;
 constexpr idx_t dim = 3;
-constexpr idx_t check_steps = 10;
 constexpr float PI = 3.14159265358979323846;
-constexpr float delta_time = 2e-4;
+constexpr float delta_time = 1e-2;
 
 constexpr float gravity = -9.8;
 constexpr float k1 = 50.0; // stiffness constant1
@@ -16,8 +15,8 @@ constexpr float k2 = 7.0; // stiffness constant2
 constexpr float viscosity = 0.05;
 constexpr float density_0 = 1000.0;
 
-constexpr float tank_size = 100.0;
-constexpr float particle_radius = tank_size / 1000.0;
+constexpr float tank_size = 20.0;
+constexpr float particle_radius = 0.05;
 constexpr float support_radius = 4.0 * particle_radius;
 constexpr float particle_volume = (4.0 * 3.14 * particle_radius * particle_radius * particle_radius) / 3.0;
 constexpr float particle_mass = particle_volume * density_0;
