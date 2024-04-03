@@ -7,7 +7,7 @@ using idx_t = int;
 constexpr idx_t num_steps = 1000;
 constexpr idx_t dim = 3;
 constexpr float PI = 3.14159265358979323846;
-constexpr float delta_time = 1e-2;
+constexpr float delta_time = 1e-3;
 
 constexpr float gravity = -9.8;
 constexpr float k1 = 50.0; // stiffness constant1
