@@ -1,7 +1,3 @@
-//
-// Created by 82162 on 4/2/2024.
-//
-
 #ifndef SPH_FLUID_SPH_CUH
 #define SPH_FLUID_SPH_CUH
 
