@@ -37,7 +37,7 @@ __global__ void get_bins_parts_cnt(particle_t* parts, idx_t num_parts, idx_t* pa
     atomicAdd(&bins_parts_cnt[part_bin_idx], 1);
 }
 
-__global__ void get_parts_sorted(particle_t* parts, idx_t num_parts, idx_t* parts_bin_idx,
+__global__ void get_parts_sorted(idx_t num_parts, idx_t* parts_bin_idx,
                                  idx_t* parts_sorted, idx_t* bins_curr_pos) {
 
     idx_t tid = blockIdx.x * blockDim.x + threadIdx.x;
@@ -53,11 +53,13 @@ void sort_particles(particle_t* parts, idx_t num_parts) {
 
     get_bins_parts_cnt<<<cuda_blks, cuda_threads>>>(parts, num_parts, parts_bin_idx,
                                                     bins_parts_cnt, support_radius, grid_dim);
+    cudaDeviceSynchronize();
 
     cub::DeviceScan::ExclusiveSum(temp_mem, temp_mem_size, bins_parts_cnt, bins_begin, num_bins);
     cudaMemcpy(bins_curr_pos, bins_begin, num_bins * sizeof(idx_t), cudaMemcpyDeviceToDevice);
     
-    get_parts_sorted<<<cuda_blks, cuda_threads>>>(parts, num_parts, parts_bin_idx, parts_sorted, bins_curr_pos);
+    get_parts_sorted<<<cuda_blks, cuda_threads>>>(num_parts, parts_bin_idx, parts_sorted, bins_curr_pos);
+    cudaDeviceSynchronize();
 }
 
 __global__ void update_densities(particle_t* parts, idx_t num_parts, float h, idx_t* parts_sorted, idx_t* bins_begin, idx_t grid_dim) {
@@ -115,14 +117,14 @@ __device__ void inline apply_gravity(particle_t& particle) {
     particle.a.z += gravity;
 }
 
-__device__ void apply_pressure(particle_t& particle, particle_t& neighbor,Vector3f& r) {
+__device__ void apply_pressure(particle_t& particle, particle_t& neighbor, Vector3f& r) {
     Vector3f kernel_derivative = cubic_kernel_derivative(r, support_radius);
 
     // TODO: Handle boundary particles
 
-    float partial_a = density_0 * particle_volume * (particle.pressure / (particle.density * particle.density) + neighbor.pressure / (neighbor.density * neighbor.density));
+    float partial_a = -particle_mass * (particle.pressure / (particle.density * particle.density) + neighbor.pressure / (neighbor.density * neighbor.density));
 
-    particle.a += kernel_derivative * partial_a;
+    particle.a += (kernel_derivative * partial_a);
 }
 
 __device__ void apply_viscosity(particle_t& particle, particle_t& neighbor, Vector3f& r) {
@@ -134,7 +136,7 @@ __device__ void apply_viscosity(particle_t& particle, particle_t& neighbor, Vect
     Vector3f kernel_derivative = cubic_kernel_derivative(r, support_radius);
     float partial_a = 2 * (dim + 2) * viscosity * (particle_mass / neighbor.density) * v_dot_x / denominator;
 
-    particle.a += kernel_derivative * partial_a;
+    particle.a += (kernel_derivative * partial_a);
 }
 
 __device__ void apply_mutual_force(particle_t& particle, particle_t& neighbor) {
@@ -255,7 +257,6 @@ void init_simul(particle_t* parts, idx_t num_parts) {
 void simul_one_step(particle_t* parts, idx_t num_parts) {
     // See https://drive.google.com/file/d/1j5Lu3G80BgsSRyEjEBc4y5klSip1eil6/view for details
     sort_particles(parts, num_parts);
-    cudaDeviceSynchronize();
 
     update_densities<<<cuda_blks, cuda_threads>>>(parts, num_parts, support_radius, parts_sorted, bins_begin, grid_dim);
     cudaDeviceSynchronize();

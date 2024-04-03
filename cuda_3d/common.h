@@ -27,7 +27,7 @@ struct Vector3f {
     float y;
     float z;
 
-    Vector3f(const Vector3f& other) = default;
+    //Vector3f(const Vector3f& other) = default;
 
     __device__ void operator+=(const Vector3f& other) {
         x += other.x;

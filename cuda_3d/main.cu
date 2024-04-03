@@ -21,14 +21,14 @@ void fill_cube(std::vector<particle_t>& parts, const Vector3f& lower_corner, con
                                 lower_corner.z + 2 * particle_radius * static_cast<float>(k) + particle_radius};
                 Vector3f velocity = {0, 0, 0};
                 Vector3f acceleration = {0, 0, 0};
-                parts.emplace_back(pos, velocity, acceleration, 1000.0, 0.0, true);
+                parts.emplace_back(pos, velocity, acceleration, density_0, 0.0, true);
             }
         }
     }
 }
 
 void init_particles(std::vector<particle_t>& parts) {
-    fill_cube(parts, {0, 2, 0}, {3, 3, 3});
+    fill_cube(parts, {0, 0, 2}, {5, 5, 5});
 }
 
 void save_point_cloud_data(const std::vector<particle_t>& parts, const std::string& path) {
