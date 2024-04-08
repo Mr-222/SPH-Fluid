@@ -54,6 +54,10 @@ __device__ inline float norm(const Vector3f& r) {
     return sqrt(r.x * r.x + r.y * r.y + r.z * r.z);
 }
 
+__device__ inline Vector3f operator-(const Vector3f& a, const Vector3f& b) {
+    return {a.x - b.x, a.y - b.y, a.z - b.z};
+}
+
 __device__ inline Vector3f operator*(const Vector3f& a, float b) {
     return {a.x * b, a.y * b, a.z * b};
 }
