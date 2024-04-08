@@ -60,9 +60,6 @@ class WCSPHSolver(SPHBase):
             d_v[1] = self.g
             for j in range(self.ps.particle_neighbors_num[p_i]):
                 p_j = self.ps.particle_neighbors[p_i, j]
-                if self.ps.material[p_j] == self.ps.material_boundary:
-                    continue
-
                 x_j = self.ps.x[p_j]
                 d_v += self.viscosity_force(p_i, p_j, x_i - x_j)
             self.d_velocity[p_i] = d_v

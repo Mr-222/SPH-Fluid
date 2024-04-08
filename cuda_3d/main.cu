@@ -7,6 +7,72 @@
 #include "happly.h"
 
 
+void add_boundaries(std::vector<particle_t>& parts) {
+    // Add two layers in each 6 faces of the tank
+    int x_num = floor(tank_size / (2 * particle_radius));
+    int y_num = floor(tank_size / (2 * particle_radius));
+    int z_num = floor(tank_size / (2 * particle_radius));
+    parts.reserve(x_num * y_num * 12);
+
+    // bottom and top face
+    for (int i = 0; i < x_num; ++i) {
+        for (int j = 0; j < y_num; ++j) {
+            for (int k = 0; k < 2; ++k) {
+                Vector3f pos = {2 * particle_radius * static_cast<float>(i) + particle_radius,
+                                2 * particle_radius * static_cast<float>(j) + particle_radius,
+                                2 * particle_radius * static_cast<float>(k) + particle_radius};
+                Vector3f velocity = {0, 0, 0};
+                Vector3f acceleration = {0, 0, 0};
+                parts.emplace_back(pos, velocity, acceleration, density_0, 0.0, false);
+
+                pos = {2 * particle_radius * static_cast<float>(i) + particle_radius,
+                       2 * particle_radius * static_cast<float>(j) + particle_radius,
+                       tank_size - 2 * particle_radius * static_cast<float>(k) - particle_radius};
+                parts.emplace_back(pos, velocity, acceleration, density_0, 0.0, false);
+            }
+        }
+    }
+
+    // front and back face
+    for (int i = 0; i < x_num; ++i) {
+        for (int j = 0; j < 2; ++j) {
+            for (int k = 0; k < z_num; ++k) {
+                Vector3f pos = {2 * particle_radius * static_cast<float>(i) + particle_radius,
+                                2 * particle_radius * static_cast<float>(j) + particle_radius,
+                                2 * particle_radius * static_cast<float>(k) + particle_radius};
+                Vector3f velocity = {0, 0, 0};
+                Vector3f acceleration = {0, 0, 0};
+                parts.emplace_back(pos, velocity, acceleration, density_0, 0.0, false);
+
+                pos = {2 * particle_radius * static_cast<float>(i) + particle_radius,
+                       tank_size - 2 * particle_radius * static_cast<float>(j) - particle_radius,
+                       2 * particle_radius * static_cast<float>(k) + particle_radius};
+                parts.emplace_back(pos, velocity, acceleration, density_0, 0.0, false);
+            }
+        }
+    }
+
+    // left and right face
+    for (int i = 0; i < 2; ++i) {
+        for (int j = 0; j < y_num; ++j) {
+            for (int k = 0; k < z_num; ++k) {
+                Vector3f pos = {2 * particle_radius * static_cast<float>(i) + particle_radius,
+                                2 * particle_radius * static_cast<float>(j) + particle_radius,
+                                2 * particle_radius * static_cast<float>(k) + particle_radius};
+                Vector3f velocity = {0, 0, 0};
+                Vector3f acceleration = {0, 0, 0};
+                parts.emplace_back(pos, velocity, acceleration, density_0, 0.0, false);
+
+                pos = {tank_size - 2 * particle_radius * static_cast<float>(i) - particle_radius,
+                       2 * particle_radius * static_cast<float>(j) + particle_radius,
+                       2 * particle_radius * static_cast<float>(k) + particle_radius};
+                parts.emplace_back(pos, velocity, acceleration, density_0, 0.0, false);
+            }
+        }
+    }
+}
+
+
 void fill_cube(std::vector<particle_t>& parts, const Vector3f& lower_corner, const Vector3f& cube_size) {
     int x_num = floor(cube_size.x / (2 * particle_radius));
     int y_num = floor(cube_size.y / (2 * particle_radius));
@@ -28,6 +94,7 @@ void fill_cube(std::vector<particle_t>& parts, const Vector3f& lower_corner, con
 }
 
 void init_particles(std::vector<particle_t>& parts) {
+    add_boundaries(parts);
     fill_cube(parts, {0, 0, 2}, {8, 8, 8});
 }
 
@@ -65,7 +132,8 @@ int main(int argc, char** argv) {
 
         if (step % check_steps == 0 || step == num_steps - 1) {
             cudaMemcpy(parts.data(), parts_gpu, num_parts * sizeof(particle_t), cudaMemcpyDeviceToHost);
-            save_point_cloud_data(parts, file_prefix + std::to_string(frame_number) + ".ply");
+            if (frame_number >= 50)
+                save_point_cloud_data(parts, file_prefix + std::to_string(frame_number) + ".ply");
             frame_number++;
         }
     }

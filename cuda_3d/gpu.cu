@@ -69,6 +69,8 @@ __global__ void update_densities(particle_t* parts, idx_t num_parts, float h, id
 
     idx_t part_idx = parts_sorted[tid];
     particle_t& part = parts[part_idx];
+    if (!part.is_fluid) return;
+
     part.density = 0;
 
     idx_t bin_grid_x = floor(part.pos.x / h);
@@ -110,6 +112,8 @@ __global__ void update_pressures(particle_t* parts, idx_t num_parts) {
     if (tid >= num_parts) return;
 
     particle_t& part = parts[tid];
+    if (!part.is_fluid) return;
+
     part.pressure = k1 * (pow(part.density / density_0, k2) - 1.0);
 }
 
@@ -120,9 +124,11 @@ __device__ void inline apply_gravity(particle_t& particle) {
 __device__ void apply_pressure(particle_t& particle, particle_t& neighbor, Vector3f& r) {
     Vector3f kernel_derivative = cubic_kernel_derivative(r, support_radius);
 
-    // TODO: Handle boundary particles
-
-    float partial_a = -particle_mass * (particle.pressure / (particle.density * particle.density) + neighbor.pressure / (neighbor.density * neighbor.density));
+    float partial_a = 0.0f;
+    if (neighbor.is_fluid)
+        partial_a = -particle_mass * (particle.pressure / (particle.density * particle.density) + neighbor.pressure / (neighbor.density * neighbor.density));
+    else
+        partial_a = -particle_mass * (particle.pressure / (particle.density * particle.density) + particle.pressure / (density_0 * density_0));
 
     particle.a += (kernel_derivative * partial_a);
 }
@@ -166,6 +172,8 @@ __global__ void compute_forces(particle_t* parts, idx_t num_parts, float support
 
     idx_t part_idx = parts_sorted[tid];
     particle_t& part = parts[part_idx];
+    if (!part.is_fluid) return;
+
     part.a.x = part.a.y = part.a.z = 0;
     idx_t bin_grid_x = floor(part.pos.x / support_radius);
     idx_t bin_grid_y = floor(part.pos.y / support_radius);
@@ -205,6 +213,7 @@ __global__ void move_particles(particle_t* parts, idx_t num_parts, float size, i
 
     idx_t part_idx = parts_sorted[tid];
     particle_t& part = parts[part_idx];
+    if (!part.is_fluid) return;
 
     part.v.x += part.a.x * dt;
     part.v.y += part.a.y * dt;
@@ -214,20 +223,24 @@ __global__ void move_particles(particle_t* parts, idx_t num_parts, float size, i
     part.pos.y += part.v.y * dt;
     part.pos.z += part.v.z * dt;
 
-    if (part.pos.x < 0)
-        simulate_collision(part, {1, 0, 0}, -part.pos.x);
-    else if (part.pos.x > size)
-        simulate_collision(part, {-1, 0, 0}, part.pos.x - size);
+//    if (part.pos.x < 0)
+//        simulate_collision(part, {1, 0, 0}, -part.pos.x);
+//    else if (part.pos.x > size)
+//        simulate_collision(part, {-1, 0, 0}, part.pos.x - size);
+//
+//    if (part.pos.y < 0)
+//        simulate_collision(part, {0, 1, 0}, -part.pos.y);
+//    else if (part.pos.y > size)
+//        simulate_collision(part, {0, -1, 0}, part.pos.y - size);
+//
+//    if (part.pos.z < 0)
+//        simulate_collision(part, {0, 0, 1}, -part.pos.z);
+//    else if (part.pos.z > size)
+//        simulate_collision(part, {0, 0, -1}, part.pos.z - size);
 
-    if (part.pos.y < 0)
-        simulate_collision(part, {0, 1, 0}, -part.pos.y);
-    else if (part.pos.y > size)
-        simulate_collision(part, {0, -1, 0}, part.pos.y - size);
-
-    if (part.pos.z < 0)
-        simulate_collision(part, {0, 0, 1}, -part.pos.z);
-    else if (part.pos.z > size)
-        simulate_collision(part, {0, 0, -1}, part.pos.z - size);
+    part.pos.x = max(2.0f * particle_radius, min(size - 2.0f * particle_radius, part.pos.x));
+    part.pos.y = max(2.0f * particle_radius, min(size - 2.0f * particle_radius, part.pos.y));
+    part.pos.z = max(2.0f * particle_radius, min(size - 2.0f * particle_radius, part.pos.z));
 
     part.a.x = part.a.y = part.a.z = 0;
 }

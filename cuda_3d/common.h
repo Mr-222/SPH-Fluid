@@ -2,32 +2,32 @@
 #define COMMON_H
 
 #include <cstdint>
+#include <cmath>
+
 using idx_t = int;
 
 constexpr int num_steps = 100000;
 constexpr int check_steps = 500;
 constexpr idx_t dim = 3;
 constexpr float PI = 3.14159265358979323846;
-constexpr float delta_time = 2e-4;
 
 constexpr float gravity = -9.8;
-constexpr float k1 = 50.0; // stiffness constant1
+constexpr float k1 = 5000.0; // stiffness constant1
 constexpr float k2 = 7.0; // stiffness constant2
-constexpr float viscosity = 0.05;
 constexpr float density_0 = 1000.0;
+constexpr float viscosity = 5000.0 / density_0;
 
 constexpr float tank_size = 10.0;
 constexpr float particle_radius = 0.05;
 constexpr float support_radius = 4.0 * particle_radius;
 constexpr float particle_volume = (4.0 * PI * particle_radius * particle_radius * particle_radius) / 3.0;
 constexpr float particle_mass = particle_volume * density_0;
+const float delta_time = 0.2 * min(sqrt(support_radius / (2 * gravity)), support_radius / k1);
 
 struct Vector3f {
     float x;
     float y;
     float z;
-
-    //Vector3f(const Vector3f& other) = default;
 
     __device__ void operator+=(const Vector3f& other) {
         x += other.x;
