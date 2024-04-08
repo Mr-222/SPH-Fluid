@@ -42,9 +42,10 @@ __device__ Vector3f cubic_kernel_derivative(Vector3f& r, float h) {
             res.z = k * q * (3.0 * q - 2.0) * grad_q.z;
         } else {
             float factor = 1.0 - q;
-            res.x = k * (-factor * factor) * grad_q.x;
-            res.y = k * (-factor * factor) * grad_q.y;
-            res.z = k * (-factor * factor) * grad_q.z;
+            factor = -factor * factor;
+            res.x = k * factor * grad_q.x;
+            res.y = k * factor * grad_q.y;
+            res.z = k * factor * grad_q.z;
         }
     }
     return res;

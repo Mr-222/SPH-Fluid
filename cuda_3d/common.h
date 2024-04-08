@@ -58,6 +58,10 @@ __device__ inline Vector3f operator*(const Vector3f& a, float b) {
     return {a.x * b, a.y * b, a.z * b};
 }
 
+__device__ inline Vector3f operator-(const Vector3f& a, const Vector3f& b) {
+    return {a.x - b.x, a.y - b.y, a.z - b.z};
+}
+
 struct particle_t {
     Vector3f pos;
     float density;
