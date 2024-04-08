@@ -11,7 +11,7 @@ constexpr float PI = 3.14159265358979323846;
 constexpr float delta_time = 2e-4;
 
 constexpr float gravity = -9.8;
-constexpr float k1 = 50.0; // stiffness constant1
+constexpr float k1 = 5000.0; // stiffness constant1
 constexpr float k2 = 7.0; // stiffness constant2
 constexpr float viscosity = 0.05;
 constexpr float density_0 = 1000.0;
