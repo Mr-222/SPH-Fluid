@@ -12,7 +12,7 @@ constexpr idx_t dim = 3;
 constexpr float PI = 3.14159265358979323846;
 
 constexpr float gravity = -9.8;
-constexpr float k1 = 5000.0; // stiffness constant1
+constexpr float k1 = 50.0; // stiffness constant1
 constexpr float k2 = 7.0; // stiffness constant2
 constexpr float density_0 = 1000.0;
 constexpr float viscosity = 5000.0 / density_0;
@@ -22,7 +22,7 @@ constexpr float particle_radius = 0.05;
 constexpr float support_radius = 4.0 * particle_radius;
 constexpr float particle_volume = (4.0 * PI * particle_radius * particle_radius * particle_radius) / 3.0;
 constexpr float particle_mass = particle_volume * density_0;
-const float delta_time = 0.2 * min(sqrt(support_radius / (2 * gravity)), support_radius / k1);
+const float delta_time = 1e-4;
 
 struct Vector3f {
     float x;

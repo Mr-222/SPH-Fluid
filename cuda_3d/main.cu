@@ -102,8 +102,11 @@ void save_point_cloud_data(const std::vector<particle_t>& parts, const std::stri
     happly::PLYData plyOut;
     std::vector<std::array<double, 3>> points;
 
-    for (const auto& part : parts)
+    for (const auto& part : parts) {
+        if (!part.is_fluid)
+            continue;
         points.push_back({part.pos.x, part.pos.y, part.pos.z});
+    }
     plyOut.addVertexPositions(points);
 
     plyOut.write(path, happly::DataFormat::ASCII);
