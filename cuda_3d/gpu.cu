@@ -69,7 +69,6 @@ __global__ void update_densities(particle_t* parts, idx_t num_parts, float h, id
 
     idx_t part_idx = parts_sorted[tid];
     particle_t& part = parts[part_idx];
-    if (!part.is_fluid) return;
 
     part.density = 0;
 

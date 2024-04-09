@@ -17,8 +17,8 @@ class WCSPHSolver(SPHBase):
     @ti.kernel
     def compute_densities(self):
         for p_i in range(self.ps.particle_num[None]):
-            if self.ps.material[p_i] != self.ps.material_fluid:
-                continue
+            # if self.ps.material[p_i] != self.ps.material_fluid:
+            #     continue
 
             x_i = self.ps.x[p_i]
             self.ps.density[p_i] = 0.0
