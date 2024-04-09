@@ -136,3 +136,4 @@ dmypy.json
 
 # Generated point cloud data
 *.ply
+*.zip
