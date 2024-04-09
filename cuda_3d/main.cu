@@ -95,7 +95,7 @@ void fill_cube(std::vector<particle_t>& parts, const Vector3f& lower_corner, con
 
 void init_particles(std::vector<particle_t>& parts) {
     add_boundaries(parts);
-    fill_cube(parts, {0, 0, 2}, {8, 8, 8});
+    fill_cube(parts, {2, 2, 3}, {6, 6, 6});
 }
 
 void save_point_cloud_data(const std::vector<particle_t>& parts, const std::string& path) {
@@ -135,8 +135,7 @@ int main(int argc, char** argv) {
 
         if (step % check_steps == 0 || step == num_steps - 1) {
             cudaMemcpy(parts.data(), parts_gpu, num_parts * sizeof(particle_t), cudaMemcpyDeviceToHost);
-            if (frame_number >= 50)
-                save_point_cloud_data(parts, file_prefix + std::to_string(frame_number) + ".ply");
+            save_point_cloud_data(parts, file_prefix + std::to_string(frame_number) + ".ply");
             frame_number++;
         }
     }

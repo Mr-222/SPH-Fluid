@@ -1,3 +1,3 @@
 #!/bin/bash
 
-salloc -N1 --mem-per-gpu=12G -t00:30:00 --gres=gpu:V100:1 --ntasks-per-node=1
+salloc -N1 --mem-per-gpu=20G -t03:00:00 --gres=gpu:H100:1 --ntasks-per-node=1
