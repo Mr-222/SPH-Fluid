@@ -9,71 +9,43 @@
 
 void add_boundaries(std::vector<particle_t>& parts) {
     // Add two layers in each 6 faces of the tank
-    int x_num = floor(tank_size / (2 * particle_radius));
-    int y_num = floor(tank_size / (2 * particle_radius));
-    int z_num = floor(tank_size / (2 * particle_radius));
-    parts.reserve(x_num * y_num * 12);
+    int num_per_axis = ceil(tank_size / (2 * particle_radius));
+    parts.reserve(num_per_axis * num_per_axis * 12);
+
+    enum class Axis {
+        X_AXIS = 0,
+        Y_AXIS = 1,
+        Z_AXIS = 2
+    };
+
+    auto layer_boundary_particles = [&parts](int x_num, int y_num, int z_num, Axis opposite_axis) {
+        for (int i = 0; i < x_num; ++i) {
+            for (int j = 0; j < y_num; ++j) {
+                for (int k = 0; k < z_num; ++k) {
+                    Vector3f pos = {2 * particle_radius * static_cast<float>(i) + particle_radius,
+                                    2 * particle_radius * static_cast<float>(j) + particle_radius,
+                                    2 * particle_radius * static_cast<float>(k) + particle_radius};
+                    parts.push_back({ pos, {0, 0, 0}, {0, 0, 0}, density_0, 0.0, false });
+
+                    pos[(int)opposite_axis] = tank_size - pos[(int)opposite_axis];
+                    parts.push_back({ pos, {0, 0, 0}, {0, 0, 0}, density_0, 0.0, false });
+                }
+            }
+        }
+    };
 
     // bottom and top face
-    for (int i = 0; i < x_num; ++i) {
-        for (int j = 0; j < y_num; ++j) {
-            for (int k = 0; k < 2; ++k) {
-                Vector3f pos = {2 * particle_radius * static_cast<float>(i) + particle_radius,
-                                2 * particle_radius * static_cast<float>(j) + particle_radius,
-                                2 * particle_radius * static_cast<float>(k) + particle_radius};
-                Vector3f velocity = {0, 0, 0};
-                Vector3f acceleration = {0, 0, 0};
-                parts.emplace_back(pos, velocity, acceleration, density_0, 0.0, false);
-
-                pos = {2 * particle_radius * static_cast<float>(i) + particle_radius,
-                       2 * particle_radius * static_cast<float>(j) + particle_radius,
-                       tank_size - 2 * particle_radius * static_cast<float>(k) - particle_radius};
-                parts.emplace_back(pos, velocity, acceleration, density_0, 0.0, false);
-            }
-        }
-    }
+    layer_boundary_particles(num_per_axis, num_per_axis, 2, Axis::Z_AXIS);
 
     // front and back face
-    for (int i = 0; i < x_num; ++i) {
-        for (int j = 0; j < 2; ++j) {
-            for (int k = 0; k < z_num; ++k) {
-                Vector3f pos = {2 * particle_radius * static_cast<float>(i) + particle_radius,
-                                2 * particle_radius * static_cast<float>(j) + particle_radius,
-                                2 * particle_radius * static_cast<float>(k) + particle_radius};
-                Vector3f velocity = {0, 0, 0};
-                Vector3f acceleration = {0, 0, 0};
-                parts.emplace_back(pos, velocity, acceleration, density_0, 0.0, false);
-
-                pos = {2 * particle_radius * static_cast<float>(i) + particle_radius,
-                       tank_size - 2 * particle_radius * static_cast<float>(j) - particle_radius,
-                       2 * particle_radius * static_cast<float>(k) + particle_radius};
-                parts.emplace_back(pos, velocity, acceleration, density_0, 0.0, false);
-            }
-        }
-    }
+    layer_boundary_particles(num_per_axis, 2, num_per_axis, Axis::Y_AXIS);
 
     // left and right face
-    for (int i = 0; i < 2; ++i) {
-        for (int j = 0; j < y_num; ++j) {
-            for (int k = 0; k < z_num; ++k) {
-                Vector3f pos = {2 * particle_radius * static_cast<float>(i) + particle_radius,
-                                2 * particle_radius * static_cast<float>(j) + particle_radius,
-                                2 * particle_radius * static_cast<float>(k) + particle_radius};
-                Vector3f velocity = {0, 0, 0};
-                Vector3f acceleration = {0, 0, 0};
-                parts.emplace_back(pos, velocity, acceleration, density_0, 0.0, false);
-
-                pos = {tank_size - 2 * particle_radius * static_cast<float>(i) - particle_radius,
-                       2 * particle_radius * static_cast<float>(j) + particle_radius,
-                       2 * particle_radius * static_cast<float>(k) + particle_radius};
-                parts.emplace_back(pos, velocity, acceleration, density_0, 0.0, false);
-            }
-        }
-    }
+    layer_boundary_particles(2, num_per_axis, num_per_axis, Axis::X_AXIS);
 }
 
 
-void fill_cube(std::vector<particle_t>& parts, const Vector3f& lower_corner, const Vector3f& cube_size) {
+void fill_cube(std::vector<particle_t>& parts, const Vector3f& lower_corner, const Vector3f& cube_size, const Vector3f& velocity) {
     int x_num = floor(cube_size.x / (2 * particle_radius));
     int y_num = floor(cube_size.y / (2 * particle_radius));
     int z_num = floor(cube_size.z / (2 * particle_radius));
@@ -85,7 +57,6 @@ void fill_cube(std::vector<particle_t>& parts, const Vector3f& lower_corner, con
                 Vector3f pos = {lower_corner.x + 2 * particle_radius * static_cast<float>(i) + particle_radius,
                                 lower_corner.y + 2 * particle_radius * static_cast<float>(j) + particle_radius,
                                 lower_corner.z + 2 * particle_radius * static_cast<float>(k) + particle_radius};
-                Vector3f velocity = {0, 0, 0};
                 Vector3f acceleration = {0, 0, 0};
                 parts.emplace_back(pos, velocity, acceleration, density_0, 0.0, true);
             }
@@ -95,12 +66,13 @@ void fill_cube(std::vector<particle_t>& parts, const Vector3f& lower_corner, con
 
 void init_particles(std::vector<particle_t>& parts) {
     add_boundaries(parts);
-    fill_cube(parts, {2, 2, 3}, {6, 6, 6});
+    fill_cube(parts, {2, 2, 3}, {6, 6, 6}, {0, 0, 0});
 }
 
 void save_point_cloud_data(const std::vector<particle_t>& parts, const std::string& path) {
     happly::PLYData plyOut;
     std::vector<std::array<double, 3>> points;
+    points.reserve(parts.size());
 
     for (const auto& part : parts) {
         if (!part.is_fluid)
@@ -112,7 +84,7 @@ void save_point_cloud_data(const std::vector<particle_t>& parts, const std::stri
     plyOut.write(path, happly::DataFormat::ASCII);
 }
 
-int main(int argc, char** argv) {
+int main() {
 
     std::vector<particle_t> parts;
     init_particles(parts);

@@ -6,14 +6,16 @@
 
 using idx_t = int;
 
-constexpr int num_steps = 100000;
-constexpr int check_steps = 500;
+constexpr int num_steps = 5000;
+constexpr int check_steps = 10;
 constexpr idx_t dim = 3;
-constexpr float PI = 3.14159265358979323846;
+constexpr float PI = 3.14159265358979323846f;
 
 constexpr float gravity = -9.8;
-constexpr float k1 = 50.0; // stiffness constant1
-constexpr float k2 = 7.0; // stiffness constant2
+// Pressure state function parameters(WCSPH), they are stiffness constants
+// See https://sph-tutorial.physics-simulation.org/pdf/SPH_Tutorial.pdf Chapter 4.4
+constexpr float k1 = 50.0;
+constexpr float k2 = 7.0;
 constexpr float density_0 = 1000.0;
 constexpr float viscosity = 0.05;
 
@@ -22,7 +24,7 @@ constexpr float particle_radius = 0.05;
 constexpr float support_radius = 4.0 * particle_radius;
 constexpr float particle_volume = (4.0 * PI * particle_radius * particle_radius * particle_radius) / 3.0;
 constexpr float particle_mass = particle_volume * density_0;
-const float delta_time = 1e-4;
+const float delta_time = 1e-3;
 
 struct Vector3f {
     float x;
@@ -39,6 +41,10 @@ struct Vector3f {
         x -= other.x;
         y -= other.y;
         z -= other.z;
+    }
+
+    float& operator[] (int i) {
+        return i == 0 ? x : (i == 1 ? y : z);
     }
 };
 

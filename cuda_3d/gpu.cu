@@ -106,6 +106,7 @@ __global__ void update_densities(particle_t* parts, idx_t num_parts, float h, id
     part.density = max(part.density, density_0); // Handle free surface
 }
 
+// https://sph-tutorial.physics-simulation.org/pdf/SPH_Tutorial.pdf Chapter 4.4
 __global__ void update_pressures(particle_t* parts, idx_t num_parts) {
     idx_t tid = blockIdx.x * blockDim.x + threadIdx.x;
     if (tid >= num_parts) return;
@@ -120,6 +121,7 @@ __device__ void inline apply_gravity(particle_t& particle) {
     particle.a.z += gravity;
 }
 
+// https://sph-tutorial.physics-simulation.org/pdf/SPH_Tutorial.pdf Chapter 5.1
 __device__ void apply_pressure(particle_t& particle, particle_t& neighbor, Vector3f& r) {
     Vector3f kernel_derivative = cubic_kernel_derivative(r, support_radius);
 
@@ -132,6 +134,9 @@ __device__ void apply_pressure(particle_t& particle, particle_t& neighbor, Vecto
     particle.a += (kernel_derivative * partial_a);
 }
 
+// Finite difference approximation of the Laplacian of the velocity field
+// From https://sph-tutorial.physics-simulation.org/pdf/SPH_Tutorial.pdf Chapter 6.2
+// See also https://github.com/taichiCourse01/taichiCourse01/blob/main/material/10_fluid_lagrangian.pdf
 __device__ void apply_viscosity(particle_t& particle, particle_t& neighbor, Vector3f& r) {
     Vector3f v_difference = particle.v - neighbor.v;
     
@@ -197,14 +202,6 @@ __global__ void compute_forces(particle_t* parts, idx_t num_parts, float support
     }
 }
 
-__device__ void simulate_collision(particle_t& part, const Vector3f& normal, float distance) {
-    // Collision factor, assume roughly (1-c_f)*velocity loss after collision
-    float c_f = 0.3;
-    part.pos += normal * distance;
-    float v_dot_n = dot(part.v, normal);
-    part.v -= normal * (1 + c_f) * v_dot_n;
-}
-
 __global__ void move_particles(particle_t* parts, idx_t num_parts, float size, idx_t* parts_sorted, float dt) {
 
     idx_t tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -221,21 +218,6 @@ __global__ void move_particles(particle_t* parts, idx_t num_parts, float size, i
     part.pos.x += part.v.x * dt;
     part.pos.y += part.v.y * dt;
     part.pos.z += part.v.z * dt;
-
-//    if (part.pos.x < 0)
-//        simulate_collision(part, {1, 0, 0}, -part.pos.x);
-//    else if (part.pos.x > size)
-//        simulate_collision(part, {-1, 0, 0}, part.pos.x - size);
-//
-//    if (part.pos.y < 0)
-//        simulate_collision(part, {0, 1, 0}, -part.pos.y);
-//    else if (part.pos.y > size)
-//        simulate_collision(part, {0, -1, 0}, part.pos.y - size);
-//
-//    if (part.pos.z < 0)
-//        simulate_collision(part, {0, 0, 1}, -part.pos.z);
-//    else if (part.pos.z > size)
-//        simulate_collision(part, {0, 0, -1}, part.pos.z - size);
 
     part.pos.x = max(2.0f * particle_radius, min(size - 2.0f * particle_radius, part.pos.x));
     part.pos.y = max(2.0f * particle_radius, min(size - 2.0f * particle_radius, part.pos.y));
