@@ -211,6 +211,7 @@ __global__ void move_particles(particle_t* parts, idx_t num_parts, float size, i
     particle_t& part = parts[part_idx];
     if (!part.is_fluid) return;
 
+    // Explicit Euler integration
     part.v.x += part.a.x * dt;
     part.v.y += part.a.y * dt;
     part.v.z += part.a.z * dt;

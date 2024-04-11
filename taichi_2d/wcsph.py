@@ -65,8 +65,7 @@ class WCSPHSolver(SPHBase):
             self.d_velocity[p_i] = d_v
 
     @ti.kernel
-    def advect(self):
-        # Symplectic Euler
+    def explicit_euler(self):
         for p_i in range(self.ps.particle_num[None]):
             if self.ps.material[p_i] == self.ps.material_fluid:
                 self.ps.v[p_i] += self.dt * self.d_velocity[p_i]
@@ -82,4 +81,4 @@ class WCSPHSolver(SPHBase):
         self.compute_densities()
         self.compute_non_pressure_forces()
         self.compute_pressure_forces()
-        self.advect()
+        self.explicit_euler()
