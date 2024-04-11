@@ -17,8 +17,8 @@ class WCSPHSolver(SPHBase):
     @ti.kernel
     def compute_densities(self):
         for p_i in range(self.ps.particle_num[None]):
-            if self.ps.material[p_i] != self.ps.material_fluid:
-                continue
+            # if self.ps.material[p_i] != self.ps.material_fluid:
+            #     continue
 
             x_i = self.ps.x[p_i]
             self.ps.density[p_i] = 0.0
@@ -60,16 +60,12 @@ class WCSPHSolver(SPHBase):
             d_v[1] = self.g
             for j in range(self.ps.particle_neighbors_num[p_i]):
                 p_j = self.ps.particle_neighbors[p_i, j]
-                if self.ps.material[p_j] == self.ps.material_boundary:
-                    continue
-
                 x_j = self.ps.x[p_j]
                 d_v += self.viscosity_force(p_i, p_j, x_i - x_j)
             self.d_velocity[p_i] = d_v
 
     @ti.kernel
-    def advect(self):
-        # Symplectic Euler
+    def explicit_euler(self):
         for p_i in range(self.ps.particle_num[None]):
             if self.ps.material[p_i] == self.ps.material_fluid:
                 self.ps.v[p_i] += self.dt * self.d_velocity[p_i]
@@ -85,4 +81,4 @@ class WCSPHSolver(SPHBase):
         self.compute_densities()
         self.compute_non_pressure_forces()
         self.compute_pressure_forces()
-        self.advect()
+        self.explicit_euler()

@@ -31,6 +31,8 @@ __pycache__/
 # Distribution / packaging
 .Python
 build/
+cmake-build-debug-visual-studio/
+cmake-build-release-visual-studio/
 develop-eggs/
 dist/
 downloads/
@@ -131,3 +133,7 @@ venv.bak/
 .mypy_cache/
 .dmypy.json
 dmypy.json
+
+# Generated point cloud data
+*.ply
+*.zip
