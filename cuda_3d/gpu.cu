@@ -226,7 +226,6 @@ void init_simul(idx_t num_parts) {
     idx_t num_bins_bytes = num_bins * sizeof(idx_t);
 
     cudaMalloc(&parts_bin_idx, num_parts_bytes);
-    // cudaMalloc(&parts_sorted, num_parts_bytes);
     cudaMalloc(&bins_parts_cnt, num_bins_bytes);
     cudaMalloc(&bins_begin, num_bins_bytes + sizeof(idx_t));
     cudaMalloc(&bins_curr_pos, num_bins_bytes);
@@ -242,18 +241,17 @@ void simul_one_step(particle_t* parts, idx_t num_parts, particle_t* parts_sorted
     // See https://on-demand.gputechconf.com/gtc/2014/presentations/S4117-fast-fixed-radius-nearest-neighbor-gpu.pdf for details
     sort_particles(parts, num_parts, parts_sorted);
     cudaDeviceSynchronize();
-    cudaMemcpy(parts, parts_sorted, num_parts * sizeof(particle_t), cudaMemcpyDeviceToDevice);
 
-    update_densities<<<cuda_blks, cuda_threads>>>(parts, num_parts, support_radius, bins_begin, grid_dim);
+    update_densities<<<cuda_blks, cuda_threads>>>(parts_sorted, num_parts, support_radius, bins_begin, grid_dim);
     cudaDeviceSynchronize();
 
-    update_pressures<<<cuda_blks, cuda_threads>>>(parts, num_parts);
+    update_pressures<<<cuda_blks, cuda_threads>>>(parts_sorted, num_parts);
     cudaDeviceSynchronize();
 
-    compute_forces<<<cuda_blks, cuda_threads>>>(parts, num_parts, support_radius, bins_begin, grid_dim);
+    compute_forces<<<cuda_blks, cuda_threads>>>(parts_sorted, num_parts, support_radius, bins_begin, grid_dim);
     cudaDeviceSynchronize();
 
-    move_particles<<<cuda_blks, cuda_threads>>>(parts, num_parts, tank_size, delta_time);
+    move_particles<<<cuda_blks, cuda_threads>>>(parts_sorted, num_parts, tank_size, delta_time);
     cudaDeviceSynchronize();
 }
 

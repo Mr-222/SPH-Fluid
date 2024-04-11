@@ -91,12 +91,12 @@ int main() {
 
     auto num_parts = static_cast<idx_t>(parts.size());
 
-    particle_t* parts_gpu;
-    cudaMalloc(&parts_gpu, num_parts * sizeof(particle_t));
-    cudaMemcpy(parts_gpu, parts.data(), num_parts * sizeof(particle_t), cudaMemcpyHostToDevice);
-
-    particle_t* parts_gpu_sorted;
-    cudaMalloc(&parts_gpu_sorted, num_parts * sizeof(particle_t));
+    // Ping-pong buffers for sorting particle data
+    particle_t* parts_gpu_a;
+    cudaMalloc(&parts_gpu_a, num_parts * sizeof(particle_t));
+    cudaMemcpy(parts_gpu_a, parts.data(), num_parts * sizeof(particle_t), cudaMemcpyHostToDevice);
+    particle_t* parts_gpu_b;
+    cudaMalloc(&parts_gpu_b, num_parts * sizeof(particle_t));
 
     std::string file_prefix = "../point_cloud_data/";
 
@@ -106,10 +106,13 @@ int main() {
 
     int frame_number = 0;
     for (idx_t step = 0; step < num_steps; ++step) {
-        simul_one_step(parts_gpu, num_parts, parts_gpu_sorted);
+        // Ping-pong
+        particle_t* parts_gpu = step % 2 == 0 ? parts_gpu_a : parts_gpu_b;
+        particle_t* parts_to_sort_gpu = step % 2 == 0 ? parts_gpu_b : parts_gpu_a;
+        simul_one_step(parts_gpu, num_parts, parts_to_sort_gpu);
 
         if (write_to_file && (step % check_steps == 0 || step == num_steps - 1)) {
-            cudaMemcpy(parts.data(), parts_gpu, num_parts * sizeof(particle_t), cudaMemcpyDeviceToHost);
+            cudaMemcpy(parts.data(), parts_to_sort_gpu, num_parts * sizeof(particle_t), cudaMemcpyDeviceToHost);
             save_point_cloud_data(parts, file_prefix + std::to_string(frame_number) + ".ply");
             frame_number++;
         }
@@ -119,12 +122,12 @@ int main() {
     cudaDeviceSynchronize();
 
     auto end_time = std::chrono::steady_clock::now();
-
     std::chrono::duration<double> diff_time = end_time - start_time;
     double seconds = diff_time.count();
-
     std::cout << "Simulation TIme = " << seconds << " seconds for " << num_parts << " particles.\n";
-    cudaFree(parts_gpu);
+
+    cudaFree(parts_gpu_a);
+    cudaFree(parts_gpu_b);
 
     return 0;
 }
