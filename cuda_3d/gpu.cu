@@ -202,7 +202,7 @@ __global__ void compute_forces(particle_t* parts, idx_t num_parts, float support
     }
 }
 
-__global__ void move_particles(particle_t* parts, idx_t num_parts, float size, idx_t* parts_sorted, float dt) {
+__global__ void move_particles(particle_t* parts, idx_t num_parts, float tank_size, idx_t* parts_sorted, float dt) {
 
     idx_t tid = threadIdx.x + blockIdx.x * blockDim.x;
     if (tid >= num_parts) return;
@@ -212,17 +212,13 @@ __global__ void move_particles(particle_t* parts, idx_t num_parts, float size, i
     if (!part.is_fluid) return;
 
     // Explicit Euler integration
-    part.v.x += part.a.x * dt;
-    part.v.y += part.a.y * dt;
-    part.v.z += part.a.z * dt;
+    part.v += part.a * dt;
+    part.pos += part.v * dt;
 
-    part.pos.x += part.v.x * dt;
-    part.pos.y += part.v.y * dt;
-    part.pos.z += part.v.z * dt;
-
-    part.pos.x = max(2.0f * particle_radius, min(size - 2.0f * particle_radius, part.pos.x));
-    part.pos.y = max(2.0f * particle_radius, min(size - 2.0f * particle_radius, part.pos.y));
-    part.pos.z = max(2.0f * particle_radius, min(size - 2.0f * particle_radius, part.pos.z));
+    // Enforce boundaries
+    part.pos.x = max(2.0f * particle_radius, min(tank_size - 2.0f * particle_radius, part.pos.x));
+    part.pos.y = max(2.0f * particle_radius, min(tank_size - 2.0f * particle_radius, part.pos.y));
+    part.pos.z = max(2.0f * particle_radius, min(tank_size - 2.0f * particle_radius, part.pos.z));
 
     part.a.x = part.a.y = part.a.z = 0;
 }
