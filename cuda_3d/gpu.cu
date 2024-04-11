@@ -10,7 +10,6 @@ idx_t grid_dim;
 idx_t num_bins;
 
 idx_t* parts_bin_idx;
-idx_t* parts_sorted;
 idx_t* bins_parts_cnt;
 idx_t* bins_begin;
 idx_t* bins_curr_pos;
@@ -37,18 +36,18 @@ __global__ void get_bins_parts_cnt(particle_t* parts, idx_t num_parts, idx_t* pa
     atomicAdd(&bins_parts_cnt[part_bin_idx], 1);
 }
 
-__global__ void get_parts_sorted(idx_t num_parts, idx_t* parts_bin_idx,
-                                 idx_t* parts_sorted, idx_t* bins_curr_pos) {
+__global__ void get_parts_sorted(idx_t num_parts, idx_t* parts_bin_idx, particle_t* parts,
+                                 particle_t* parts_sorted, idx_t* bins_curr_pos) {
 
     idx_t tid = blockIdx.x * blockDim.x + threadIdx.x;
     if (tid >= num_parts) return;
 
     idx_t part_bin_idx = parts_bin_idx[tid];
     idx_t pos = atomicAdd(&bins_curr_pos[part_bin_idx], 1);
-    parts_sorted[pos] = tid;
+    parts_sorted[pos] = parts[tid];
 }
 
-void sort_particles(particle_t* parts, idx_t num_parts) {
+void sort_particles(particle_t* parts, idx_t num_parts, particle_t* parts_sorted) {
     cudaMemset(bins_parts_cnt, 0, num_bins * sizeof(idx_t));
 
     get_bins_parts_cnt<<<cuda_blks, cuda_threads>>>(parts, num_parts, parts_bin_idx,
@@ -58,17 +57,16 @@ void sort_particles(particle_t* parts, idx_t num_parts) {
     cub::DeviceScan::ExclusiveSum(temp_mem, temp_mem_size, bins_parts_cnt, bins_begin, num_bins);
     cudaMemcpy(bins_curr_pos, bins_begin, num_bins * sizeof(idx_t), cudaMemcpyDeviceToDevice);
     
-    get_parts_sorted<<<cuda_blks, cuda_threads>>>(num_parts, parts_bin_idx, parts_sorted, bins_curr_pos);
+    get_parts_sorted<<<cuda_blks, cuda_threads>>>(num_parts, parts_bin_idx, parts, parts_sorted, bins_curr_pos);
     cudaDeviceSynchronize();
 }
 
-__global__ void update_densities(particle_t* parts, idx_t num_parts, float h, idx_t* parts_sorted, idx_t* bins_begin, idx_t grid_dim) {
+__global__ void update_densities(particle_t* parts, idx_t num_parts, float h, idx_t* bins_begin, idx_t grid_dim) {
 
     idx_t tid = blockIdx.x * blockDim.x + threadIdx.x;
     if (tid >= num_parts) return;
 
-    idx_t part_idx = parts_sorted[tid];
-    particle_t& part = parts[part_idx];
+    particle_t& part = parts[tid];
 
     part.density = 0;
 
@@ -90,8 +88,7 @@ __global__ void update_densities(particle_t* parts, idx_t num_parts, float h, id
                 idx_t bin_begin = bins_begin[apply_bin_idx];
                 idx_t bin_end = bins_begin[apply_bin_idx + 1];
                 for (idx_t l = bin_begin; l < bin_end; ++l) {
-                    idx_t neighbor_idx = parts_sorted[l];
-                    particle_t& neighbor = parts[neighbor_idx];
+                    particle_t& neighbor = parts[l];
                     if (part == neighbor) continue;
 
                     Vector3f r = {part.pos.x - neighbor.pos.x, part.pos.y - neighbor.pos.y, part.pos.z - neighbor.pos.z};
@@ -155,27 +152,24 @@ __device__ void apply_mutual_force(particle_t& particle, particle_t& neighbor) {
     apply_viscosity(particle, neighbor,r);
 }
 
-__device__ void apply_bin_force(particle_t& part, idx_t bin_idx, particle_t* parts,
-                                idx_t* parts_sorted, idx_t* bins_begin) {
+__device__ void apply_bin_force(particle_t& part, idx_t bin_idx, particle_t* parts, idx_t* bins_begin) {
 
     idx_t bin_begin = bins_begin[bin_idx];
     idx_t bin_end = bins_begin[bin_idx + 1];
     for (idx_t i = bin_begin; i < bin_end; ++i) {
-        idx_t part_idx = parts_sorted[i];
-        particle_t& neighbor_part = parts[part_idx];
+        particle_t& neighbor_part = parts[i];
         if (part != neighbor_part)
             apply_mutual_force(part, neighbor_part);
     }
 }
 
 __global__ void compute_forces(particle_t* parts, idx_t num_parts, float support_radius,
-                               idx_t* parts_sorted, idx_t* bins_begin, idx_t grid_dim) {
+                               idx_t* bins_begin, idx_t grid_dim) {
 
     idx_t tid = blockIdx.x * blockDim.x + threadIdx.x;
     if (tid >= num_parts) return;
 
-    idx_t part_idx = parts_sorted[tid];
-    particle_t& part = parts[part_idx];
+    particle_t& part = parts[tid];
     if (!part.is_fluid) return;
 
     part.a.x = part.a.y = part.a.z = 0;
@@ -196,19 +190,18 @@ __global__ void compute_forces(particle_t* parts, idx_t num_parts, float support
                     apply_bin_grid_z < 0 || apply_bin_grid_z >= grid_dim) continue;
 
                 int apply_bin_idx = (apply_bin_grid_x * grid_dim + apply_bin_grid_y) * grid_dim + apply_bin_grid_z;
-                apply_bin_force(part, apply_bin_idx, parts, parts_sorted, bins_begin);
+                apply_bin_force(part, apply_bin_idx, parts, bins_begin);
             }
         }
     }
 }
 
-__global__ void move_particles(particle_t* parts, idx_t num_parts, float tank_size, idx_t* parts_sorted, float dt) {
+__global__ void move_particles(particle_t* parts, idx_t num_parts, float tank_size, float dt) {
 
     idx_t tid = threadIdx.x + blockIdx.x * blockDim.x;
     if (tid >= num_parts) return;
 
-    idx_t part_idx = parts_sorted[tid];
-    particle_t& part = parts[part_idx];
+    particle_t& part = parts[tid];
     if (!part.is_fluid) return;
 
     // Explicit Euler integration
@@ -223,7 +216,7 @@ __global__ void move_particles(particle_t* parts, idx_t num_parts, float tank_si
     part.a.x = part.a.y = part.a.z = 0;
 }
 
-void init_simul(particle_t* parts, idx_t num_parts) {
+void init_simul(idx_t num_parts) {
     cuda_blks = (num_parts + cuda_threads - 1) / cuda_threads;
 
     grid_dim = ceil(tank_size / support_radius);
@@ -233,7 +226,7 @@ void init_simul(particle_t* parts, idx_t num_parts) {
     idx_t num_bins_bytes = num_bins * sizeof(idx_t);
 
     cudaMalloc(&parts_bin_idx, num_parts_bytes);
-    cudaMalloc(&parts_sorted, num_parts_bytes);
+    // cudaMalloc(&parts_sorted, num_parts_bytes);
     cudaMalloc(&bins_parts_cnt, num_bins_bytes);
     cudaMalloc(&bins_begin, num_bins_bytes + sizeof(idx_t));
     cudaMalloc(&bins_curr_pos, num_bins_bytes);
@@ -245,26 +238,28 @@ void init_simul(particle_t* parts, idx_t num_parts) {
     cudaMalloc((void**)&temp_mem, temp_mem_size);
 }
 
-void simul_one_step(particle_t* parts, idx_t num_parts) {
-    // See https://drive.google.com/file/d/1j5Lu3G80BgsSRyEjEBc4y5klSip1eil6/view for details
-    sort_particles(parts, num_parts);
+void simul_one_step(particle_t* parts, idx_t num_parts, particle_t* parts_sorted) {
+    // See https://on-demand.gputechconf.com/gtc/2014/presentations/S4117-fast-fixed-radius-nearest-neighbor-gpu.pdf for details
+    sort_particles(parts, num_parts, parts_sorted);
+    cudaDeviceSynchronize();
+    cudaMemcpy(parts, parts_sorted, num_parts * sizeof(particle_t), cudaMemcpyDeviceToDevice);
 
-    update_densities<<<cuda_blks, cuda_threads>>>(parts, num_parts, support_radius, parts_sorted, bins_begin, grid_dim);
+    update_densities<<<cuda_blks, cuda_threads>>>(parts, num_parts, support_radius, bins_begin, grid_dim);
     cudaDeviceSynchronize();
 
     update_pressures<<<cuda_blks, cuda_threads>>>(parts, num_parts);
     cudaDeviceSynchronize();
 
-    compute_forces<<<cuda_blks, cuda_threads>>>(parts, num_parts, support_radius, parts_sorted, bins_begin, grid_dim);
+    compute_forces<<<cuda_blks, cuda_threads>>>(parts, num_parts, support_radius, bins_begin, grid_dim);
     cudaDeviceSynchronize();
 
-    move_particles<<<cuda_blks, cuda_threads>>>(parts, num_parts, tank_size, parts_sorted, delta_time);
+    move_particles<<<cuda_blks, cuda_threads>>>(parts, num_parts, tank_size, delta_time);
     cudaDeviceSynchronize();
 }
 
 void clear_simul() {
     cudaFree(parts_bin_idx);
-    cudaFree(parts_sorted);
+   // cudaFree(parts_sorted);
     cudaFree(bins_parts_cnt);
     cudaFree(bins_begin);
     cudaFree(bins_curr_pos);

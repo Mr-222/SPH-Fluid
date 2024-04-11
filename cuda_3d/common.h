@@ -26,6 +26,8 @@ constexpr float particle_volume = (4.0 * PI * particle_radius * particle_radius 
 constexpr float particle_mass = particle_volume * density_0;
 const float delta_time = 1e-3;
 
+constexpr bool write_to_file = false;
+
 struct Vector3f {
     float x;
     float y;
@@ -88,8 +90,8 @@ struct particle_t {
     }
 };
 
-void init_simul(particle_t* parts, idx_t num_parts);
-void simul_one_step(particle_t* parts, idx_t num_parts);
+void init_simul(idx_t num_parts);
+void simul_one_step(particle_t* parts, idx_t num_parts, particle_t* parts_sorted);
 void clear_simul();
 
 #endif //COMMON_H

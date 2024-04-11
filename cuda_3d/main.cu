@@ -95,17 +95,20 @@ int main() {
     cudaMalloc(&parts_gpu, num_parts * sizeof(particle_t));
     cudaMemcpy(parts_gpu, parts.data(), num_parts * sizeof(particle_t), cudaMemcpyHostToDevice);
 
+    particle_t* parts_gpu_sorted;
+    cudaMalloc(&parts_gpu_sorted, num_parts * sizeof(particle_t));
+
     std::string file_prefix = "../point_cloud_data/";
 
     auto start_time = std::chrono::steady_clock::now();
 
-    init_simul(parts_gpu, num_parts);
+    init_simul(num_parts);
 
     int frame_number = 0;
     for (idx_t step = 0; step < num_steps; ++step) {
-        simul_one_step(parts_gpu, num_parts);
+        simul_one_step(parts_gpu, num_parts, parts_gpu_sorted);
 
-        if (step % check_steps == 0 || step == num_steps - 1) {
+        if (write_to_file && (step % check_steps == 0 || step == num_steps - 1)) {
             cudaMemcpy(parts.data(), parts_gpu, num_parts * sizeof(particle_t), cudaMemcpyDeviceToHost);
             save_point_cloud_data(parts, file_prefix + std::to_string(frame_number) + ".ply");
             frame_number++;
