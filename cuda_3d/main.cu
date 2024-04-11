@@ -2,6 +2,7 @@
 #include <cmath>
 #include <vector>
 #include <chrono>
+#include <thread>
 
 #include "common.h"
 #include "happly.h"
@@ -104,6 +105,7 @@ int main() {
 
     init_simul(num_parts);
 
+    std::thread save_thread;
     int frame_number = 0;
     for (idx_t step = 0; step < num_steps; ++step) {
         // Ping-pong
@@ -112,8 +114,11 @@ int main() {
         simul_one_step(parts_gpu, num_parts, parts_to_sort_gpu);
 
         if (write_to_file && (step % check_steps == 0 || step == num_steps - 1)) {
+            if (save_thread.joinable())
+                save_thread.join();
+
             cudaMemcpy(parts.data(), parts_to_sort_gpu, num_parts * sizeof(particle_t), cudaMemcpyDeviceToHost);
-            save_point_cloud_data(parts, file_prefix + std::to_string(frame_number) + ".ply");
+            save_thread = std::thread(save_point_cloud_data, parts, file_prefix + std::to_string(frame_number) + ".ply");
             frame_number++;
         }
     }

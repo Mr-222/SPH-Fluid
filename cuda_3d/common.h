@@ -26,7 +26,7 @@ constexpr float particle_volume = (4.0 * PI * particle_radius * particle_radius 
 constexpr float particle_mass = particle_volume * density_0;
 const float delta_time = 1e-3;
 
-constexpr bool write_to_file = false;
+constexpr bool write_to_file = true;
 
 struct Vector3f {
     float x;
