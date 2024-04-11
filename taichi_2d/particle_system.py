@@ -208,23 +208,23 @@ class ParticleSystem:
         positions = []
 
         # lower boundary
-        for x_pos in np.arange(0, width, self.particle_radius):
-            for y_pos in np.arange(0, self.support_radius, self.particle_radius):
+        for x_pos in np.arange(self.particle_radius, width, 2.0 * self.particle_radius):
+            for y_pos in np.arange(self.particle_radius, self.support_radius, 2.0 * self.particle_radius):
                 positions.append([x_pos, y_pos])
 
         # upper boundary
-        for x_pos in np.arange(0, width, self.particle_radius):
-            for y_pos in np.arange(height - self.support_radius, height, self.particle_radius):
+        for x_pos in np.arange(self.particle_radius, width, 2.0 * self.particle_radius):
+            for y_pos in np.arange(height - self.support_radius + self.particle_radius, height, 2.0 * self.particle_radius):
                 positions.append([x_pos, y_pos])
 
         # left boundary
-        for x_pos in np.arange(0, self.support_radius, self.particle_radius):
-            for y_pos in np.arange(0, height, self.particle_radius):
+        for x_pos in np.arange(self.particle_radius, self.support_radius, 2.0 * self.particle_radius):
+            for y_pos in np.arange(self.particle_radius, height, 2.0 * self.particle_radius):
                 positions.append([x_pos, y_pos])
 
         # right boundary
-        for x_pos in np.arange(width - self.support_radius, width, self.particle_radius):
-            for y_pos in np.arange(0, height, self.particle_radius):
+        for x_pos in np.arange(width - self.support_radius + self.particle_radius, width, 2.0 * self.particle_radius):
+            for y_pos in np.arange(self.particle_radius, height, 2.0 * self.particle_radius):
                 positions.append([x_pos, y_pos])
 
         positions = np.array(positions)
