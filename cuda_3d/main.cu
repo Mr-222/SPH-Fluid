@@ -126,6 +126,10 @@ int main() {
     clear_simul();
     cudaDeviceSynchronize();
 
+    if (save_thread.joinable()) {
+        save_thread.join();
+    }
+
     auto end_time = std::chrono::steady_clock::now();
     std::chrono::duration<double> diff_time = end_time - start_time;
     double seconds = diff_time.count();
