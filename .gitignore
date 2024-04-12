@@ -137,3 +137,13 @@ dmypy.json
 # Generated point cloud data
 *.ply
 *.zip
+
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+openmp_2d
+point_cloud_data/
+.exe
+
