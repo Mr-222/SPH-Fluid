@@ -4,6 +4,8 @@
 #include <vector>
 #include <algorithm>
 #include <numeric>
+#include <omp.h>
+
 
 idx_t grid_dim;
 idx_t num_bins;
@@ -21,28 +23,41 @@ idx_t get_part_bin_idx(const particle_t& part, float support_radius, idx_t grid_
     return (grid_x * grid_dim + grid_y) * grid_dim + grid_z;
 }
 
+#include <omp.h>
+
 void sort_particles(std::vector<particle_t>& parts, std::vector<particle_t>& parts_sorted) {
+    // Initialize bin counters to zero
     std::fill(bins_parts_cnt.begin(), bins_parts_cnt.end(), 0);
 
+    #pragma omp parallel for
     for (idx_t i = 0; i < parts.size(); ++i) {
         idx_t part_bin_idx = get_part_bin_idx(parts[i], support_radius, grid_dim);
-        parts_bin_idx[i] = part_bin_idx;
+        #pragma omp atomic
         bins_parts_cnt[part_bin_idx]++;
     }
 
     bins_begin[0] = 0;
     std::partial_sum(bins_parts_cnt.begin(), bins_parts_cnt.end(), bins_begin.begin() + 1);
-    bins_curr_pos = bins_begin;
+    
+    std::vector<idx_t> bins_curr_pos = bins_begin;
 
+    #pragma omp parallel for
     for (idx_t i = 0; i < parts.size(); ++i) {
         idx_t part_bin_idx = parts_bin_idx[i];
-        idx_t pos = bins_curr_pos[part_bin_idx]++;
+        idx_t pos;
+        #pragma omp critical
+        {
+            pos = bins_curr_pos[part_bin_idx]++;
+        }
         parts_sorted[pos] = parts[i];
     }
 }
 
+
 void update_densities(std::vector<particle_t>& parts, float h, std::vector<idx_t>& bins_begin, idx_t grid_dim) {
-    for (auto& part : parts) {
+    #pragma omp parallel for
+    for (idx_t i = 0; i < parts.size(); ++i) {
+        auto& part = parts[i];
         part.density = 0;
 
         idx_t bin_grid_x = floor(part.pos.x / h);
@@ -63,12 +78,12 @@ void update_densities(std::vector<particle_t>& parts, float h, std::vector<idx_t
                     idx_t bin_begin = bins_begin[apply_bin_idx];
                     idx_t bin_end = bins_begin[apply_bin_idx + 1];
                     for (idx_t l = bin_begin; l < bin_end; ++l) {
+                        if (i == l) continue;
                         particle_t& neighbor = parts[l];
-                        if (part == neighbor) continue;
-
                         Vector3f r = {part.pos.x - neighbor.pos.x, part.pos.y - neighbor.pos.y, part.pos.z - neighbor.pos.z};
                         float r_norm = norm(r);
                         if (r_norm < h) {
+                            #pragma omp atomic
                             part.density += particle_mass * cubic_kernel(r_norm, h);
                         }
                     }
@@ -79,12 +94,15 @@ void update_densities(std::vector<particle_t>& parts, float h, std::vector<idx_t
     }
 }
 
+
 void update_pressures(std::vector<particle_t>& parts) {
+    #pragma omp parallel for
     for (auto& part : parts) {
         if (!part.is_fluid) continue;
         part.pressure = k1 * (std::pow(part.density / density_0, k2) - 1.0);
     }
 }
+
 
 
 void inline apply_gravity(particle_t& particle) {
@@ -135,7 +153,9 @@ void apply_bin_force(particle_t& part, idx_t bin_idx, std::vector<particle_t>& p
 }
 
 void compute_forces(std::vector<particle_t>& parts, std::vector<idx_t>& bins_begin, idx_t grid_dim) {
-    for (auto& part : parts) {
+    #pragma omp parallel for
+    for (idx_t index = 0; index < parts.size(); ++index) {
+        auto& part = parts[index];
         if (!part.is_fluid) continue;
 
         part.a.x = part.a.y = part.a.z = 0;
@@ -155,7 +175,7 @@ void compute_forces(std::vector<particle_t>& parts, std::vector<idx_t>& bins_beg
                         apply_bin_grid_y < 0 || apply_bin_grid_y >= grid_dim ||
                         apply_bin_grid_z < 0 || apply_bin_grid_z >= grid_dim) continue;
 
-                    int apply_bin_idx = (apply_bin_grid_x * grid_dim + apply_bin_grid_y) * grid_dim + apply_bin_grid_z;
+                    idx_t apply_bin_idx = (apply_bin_grid_x * grid_dim + apply_bin_grid_y) * grid_dim + apply_bin_grid_z;
                     apply_bin_force(part, apply_bin_idx, parts, bins_begin);
                 }
             }
@@ -164,7 +184,9 @@ void compute_forces(std::vector<particle_t>& parts, std::vector<idx_t>& bins_beg
 }
 
 void move_particles(std::vector<particle_t>& parts, float tank_size, float dt) {
-    for (auto& part : parts) {
+    #pragma omp parallel for
+    for (idx_t index = 0; index < parts.size(); ++index) {
+        auto& part = parts[index];
         if (!part.is_fluid) continue;
 
         // Explicit Euler integration to update velocity and position

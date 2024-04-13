@@ -83,7 +83,7 @@ int main() {
 
     auto num_parts = static_cast<idx_t>(parts.size());
 
-    std::string file_prefix = "./point_cloud_data/";
+    std::string file_prefix = "./point_cloud_data/openmp_data/";
 
     auto start_time = std::chrono::steady_clock::now();
 
@@ -94,15 +94,20 @@ int main() {
     for (idx_t step = 0; step < num_steps; ++step) {
         simul_one_step(parts, parts_sorted, num_parts);
 
-        // if (write_to_file && (step % check_steps == 0 || step == num_steps - 1)) {
-        //     if (save_thread.joinable()){
-        //         save_thread.join();
-        //     }
+        if (write_to_file && (step % check_steps == 0 || step == num_steps - 1)) {
+            if (save_thread.joinable()){
+                save_thread.join();
+            }
 
-        //     save_thread = std::thread(save_point_cloud_data, parts, file_prefix + std::to_string(frame_number) + ".ply");
-        //     frame_number++;
-        // }
+            save_thread = std::thread(save_point_cloud_data, parts, file_prefix + std::to_string(frame_number) + ".ply");
+            frame_number++;
+        }
     }
+
+    if (save_thread.joinable()){
+        save_thread.join();
+    }
+
 
     clear_simul();
 
