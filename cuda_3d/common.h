@@ -27,6 +27,8 @@ constexpr float particle_mass = particle_volume * density_0;
 const float delta_time = 1e-3;
 
 constexpr bool write_to_file = true;
+constexpr idx_t gpu_buffer_num = 8;
+constexpr idx_t save_thread_num = 8;
 
 struct Vector3f {
     float x;
@@ -77,6 +79,8 @@ struct particle_t {
     float pressure;
     Vector3f a;
     bool is_fluid;
+
+    particle_t() = default;
 
     particle_t(const Vector3f& my_pos, const Vector3f& my_v, const Vector3f& my_a, float my_density, float my_pressure, bool im_fluid)
     : pos(my_pos), v(my_v), a(my_a), density(my_density), pressure(my_pressure), is_fluid(im_fluid) {}
