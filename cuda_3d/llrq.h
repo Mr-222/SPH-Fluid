@@ -11,7 +11,7 @@ private:
     T* data;
     size_t capacity;
 
-    std::atomic<size_t> prod_head;
+    size_t prod_head;
     std::atomic<size_t> cons_head;
     std::atomic<size_t> cons_tail;
 
@@ -25,29 +25,32 @@ public:
         data = new T[cap + 1];
     }
 
-    void push(const T& elem) {
+    bool push(const T& elem) {
         size_t nextof_prod_head = nextof(prod_head);
-        while (cons_tail.load(std::memory_order_relaxed) == nextof_prod_head);
+        if (cons_tail.load(std::memory_order_relaxed) == nextof_prod_head) {
+            return false;
+        }
         data[prod_head] = elem;
         ++prod_head;
+        return true;
     }
 
-    T pop() {
+    bool pop(T& output) {
         bool success = false;
-        size_t curr_cons_head, nextof_curr_cons_head;
-        do {
-            curr_cons_head = cons_head.load(std::memory_order_relaxed);
-            size_t curr_prod_head = prod_head.load(std::memory_order_relaxed);
-            if (curr_cons_head != curr_prod_head) {
-                nextof_curr_cons_head = nextof(curr_cons_head);
-                success = cons_head.compare_exchange_weak(curr_cons_head, nextof_curr_cons_head, std::memory_order_relaxed);
-            }
-        } while (!success);
+        size_t nextof_curr_cons_head;
 
-        T res = data[curr_cons_head];
+        size_t curr_cons_head = cons_head.load(std::memory_order_relaxed);
+        size_t curr_prod_head = prod_head.load(std::memory_order_relaxed);
+        if (curr_cons_head != curr_prod_head) {
+            nextof_curr_cons_head = nextof(curr_cons_head);
+            success = cons_head.compare_exchange_weak(curr_cons_head, nextof_curr_cons_head, std::memory_order_relaxed);
+        }
+        if (!success) return false;
+
+        output = data[curr_cons_head];
 
         while(!cons_tail.compare_exchange_weak(curr_cons_head, nextof_curr_cons_head, std::memory_order_relaxed));
 
-        return res;
+        return true;
     }
 };
