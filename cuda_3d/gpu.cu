@@ -208,10 +208,10 @@ __global__ void move_particles(particle_t* parts, idx_t num_parts, float tank_si
     part.v += part.a * dt;
     part.pos += part.v * dt;
 
-    // Enforce boundaries
-    part.pos.x = max(2.0f * particle_radius, min(tank_size - 2.0f * particle_radius, part.pos.x));
-    part.pos.y = max(2.0f * particle_radius, min(tank_size - 2.0f * particle_radius, part.pos.y));
-    part.pos.z = max(2.0f * particle_radius, min(tank_size - 2.0f * particle_radius, part.pos.z));
+    // Enforce boundaries, particles and boundary should not overlap
+    part.pos.x = max(support_radius + particle_radius, min(tank_size - support_radius - particle_radius, part.pos.x));
+    part.pos.y = max(support_radius + particle_radius, min(tank_size - support_radius - particle_radius, part.pos.y));
+    part.pos.z = max(support_radius + particle_radius, min(tank_size - support_radius - particle_radius, part.pos.z));
 
     part.a.x = part.a.y = part.a.z = 0;
 }
@@ -257,7 +257,6 @@ void simul_one_step(particle_t* parts, idx_t num_parts, particle_t* parts_sorted
 
 void clear_simul() {
     cudaFree(parts_bin_idx);
-   // cudaFree(parts_sorted);
     cudaFree(bins_parts_cnt);
     cudaFree(bins_begin);
     cudaFree(bins_curr_pos);

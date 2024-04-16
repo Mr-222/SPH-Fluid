@@ -6,7 +6,7 @@
 
 using idx_t = int;
 
-constexpr int num_steps = 5000;
+constexpr int num_steps = 4000;
 constexpr int check_steps = 10;
 constexpr idx_t dim = 3;
 constexpr float PI = 3.14159265358979323846f;
