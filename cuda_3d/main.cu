@@ -13,7 +13,7 @@
 
 void add_boundaries(std::vector<particle_t>& parts) {
     // Add two layers in each 6 faces of the tank
-    int num_per_axis = ceil(tank_size / (2 * particle_radius));
+    int num_per_axis = floor(tank_size / (2 * particle_radius));
     parts.reserve(num_per_axis * num_per_axis * 12);
 
     enum class Axis {
@@ -70,7 +70,7 @@ void fill_cube(std::vector<particle_t>& parts, const Vector3f& lower_corner, con
 
 void init_particles(std::vector<particle_t>& parts) {
     add_boundaries(parts);
-    fill_cube(parts, {2, 2, 3}, {6, 6, 6}, {0, 0, 0});
+    fill_cube(parts, {1, 1, 2}, {8, 8, 7}, {0, 0, -10});
 }
 
 void save_point_cloud_data(particle_t* parts, idx_t num_parts, const std::string& path) {
