@@ -4,11 +4,11 @@ In our final project for CSE6230: High Performance Parallel Computing - Tools an
 
 
 
-### Result:
+### Result
 
 <img src="./output.gif" title="" alt="" data-align="center">
 
-### References:
+### References
 
 [Authors | Smoothed Particle Hydrodynamics Techniques for the Physics Based Simulation of Fluids and Solids (physics-simulation.org)](https://sph-tutorial.physics-simulation.org/)
 
