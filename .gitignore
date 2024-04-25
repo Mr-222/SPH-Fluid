@@ -5,6 +5,10 @@
 *.cubin
 *.fatbin
 
+# Houdini
+*.hipnc
+geo/
+render/
 
 # Editors
 .vscode/
