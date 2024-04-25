@@ -17,9 +17,6 @@ class WCSPHSolver(SPHBase):
     @ti.kernel
     def compute_densities(self):
         for p_i in range(self.ps.particle_num[None]):
-            # if self.ps.material[p_i] != self.ps.material_fluid:
-            #     continue
-
             x_i = self.ps.x[p_i]
             self.ps.density[p_i] = 0.0
             for j in range(self.ps.particle_neighbors_num[p_i]):
@@ -71,11 +68,11 @@ class WCSPHSolver(SPHBase):
                 self.ps.v[p_i] += self.dt * self.d_velocity[p_i]
                 self.ps.x[p_i] += self.dt * self.ps.v[p_i]
 
-                # Enforce boundary
-                self.ps.x[p_i][0] = ti.max(self.ps.support_radius, self.ps.x[p_i][0])
-                self.ps.x[p_i][0] = ti.min(self.ps.bound[0] - self.ps.support_radius, self.ps.x[p_i][0])
-                self.ps.x[p_i][1] = ti.max(self.ps.support_radius, self.ps.x[p_i][1])
-                self.ps.x[p_i][1] = ti.min(self.ps.bound[1] - self.ps.support_radius, self.ps.x[p_i][1])
+                # Enforce boundaries, particles and boundary should not overlap
+                self.ps.x[p_i][0] = ti.max(self.ps.support_radius + self.ps.particle_radius, self.ps.x[p_i][0])
+                self.ps.x[p_i][0] = ti.min(self.ps.bound[0] - self.ps.support_radius - self.ps.particle_radius, self.ps.x[p_i][0])
+                self.ps.x[p_i][1] = ti.max(self.ps.support_radius + self.ps.particle_radius, self.ps.x[p_i][1])
+                self.ps.x[p_i][1] = ti.min(self.ps.bound[1] - self.ps.support_radius - self.ps.particle_radius, self.ps.x[p_i][1])
 
     def substep(self):
         self.compute_densities()

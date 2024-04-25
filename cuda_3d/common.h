@@ -6,7 +6,7 @@
 
 using idx_t = int;
 
-constexpr int num_steps = 5000;
+constexpr int num_steps = 4000;
 constexpr int check_steps = 10;
 constexpr idx_t dim = 3;
 constexpr float PI = 3.14159265358979323846f;
@@ -25,6 +25,10 @@ constexpr float support_radius = 4.0 * particle_radius;
 constexpr float particle_volume = (4.0 * PI * particle_radius * particle_radius * particle_radius) / 3.0;
 constexpr float particle_mass = particle_volume * density_0;
 const float delta_time = 1e-3;
+
+constexpr bool write_to_file = true;
+constexpr idx_t gpu_buffer_num = 8;
+constexpr idx_t save_thread_num = 8;
 
 struct Vector3f {
     float x;
@@ -76,6 +80,8 @@ struct particle_t {
     Vector3f a;
     bool is_fluid;
 
+    particle_t() = default;
+
     particle_t(const Vector3f& my_pos, const Vector3f& my_v, const Vector3f& my_a, float my_density, float my_pressure, bool im_fluid)
     : pos(my_pos), v(my_v), a(my_a), density(my_density), pressure(my_pressure), is_fluid(im_fluid) {}
 
@@ -88,8 +94,8 @@ struct particle_t {
     }
 };
 
-void init_simul(particle_t* parts, idx_t num_parts);
-void simul_one_step(particle_t* parts, idx_t num_parts);
+void init_simul(idx_t num_parts);
+void simul_one_step(particle_t* parts, idx_t num_parts, particle_t* parts_sorted);
 void clear_simul();
 
 #endif //COMMON_H

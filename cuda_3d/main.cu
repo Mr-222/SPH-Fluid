@@ -2,14 +2,18 @@
 #include <cmath>
 #include <vector>
 #include <chrono>
+#include <thread>
+#include <atomic>
+#include <cassert>
 
 #include "common.h"
 #include "happly.h"
+#include "llrq.h"
 
 
 void add_boundaries(std::vector<particle_t>& parts) {
     // Add two layers in each 6 faces of the tank
-    int num_per_axis = ceil(tank_size / (2 * particle_radius));
+    int num_per_axis = floor(tank_size / (2 * particle_radius));
     parts.reserve(num_per_axis * num_per_axis * 12);
 
     enum class Axis {
@@ -66,15 +70,16 @@ void fill_cube(std::vector<particle_t>& parts, const Vector3f& lower_corner, con
 
 void init_particles(std::vector<particle_t>& parts) {
     add_boundaries(parts);
-    fill_cube(parts, {2, 2, 3}, {6, 6, 6}, {0, 0, 0});
+    fill_cube(parts, {1, 1, 2}, {8, 8, 7}, {0, 0, -10});
 }
 
-void save_point_cloud_data(const std::vector<particle_t>& parts, const std::string& path) {
+void save_point_cloud_data(particle_t* parts, idx_t num_parts, const std::string& path) {
     happly::PLYData plyOut;
     std::vector<std::array<double, 3>> points;
-    points.reserve(parts.size());
+    points.reserve(num_parts);
 
-    for (const auto& part : parts) {
+    for (idx_t i = 0; i < num_parts; ++i) {
+        particle_t& part = parts[i];
         if (!part.is_fluid)
             continue;
         points.push_back({part.pos.x, part.pos.y, part.pos.z});
@@ -84,44 +89,106 @@ void save_point_cloud_data(const std::vector<particle_t>& parts, const std::stri
     plyOut.write(path, happly::DataFormat::ASCII);
 }
 
+
+LLRQ<std::pair<idx_t, particle_t*>> buff_to_read(gpu_buffer_num);
+LLRQ<particle_t*> buff_to_write(gpu_buffer_num);
+
+std::string file_prefix = "../point_cloud_data/";
+
+volatile bool gpu_running = true;
+
+void save_thread_fct(idx_t num_parts) {
+    particle_t* buffer = new particle_t[num_parts];
+    std::pair<idx_t, particle_t*> to_read_pair;
+
+    while (true) {
+        if (buff_to_read.pop(to_read_pair)) {
+            idx_t frame_number = to_read_pair.first;
+            particle_t* parts_to_save = to_read_pair.second;
+            cudaMemcpy(buffer, parts_to_save, num_parts * sizeof(particle_t), cudaMemcpyDeviceToHost);
+            buff_to_write.push(parts_to_save);
+
+            save_point_cloud_data(buffer, num_parts, file_prefix + std::to_string(frame_number) + ".ply");
+        }
+        else if (!gpu_running){
+            break;
+        }
+    }
+    delete[] buffer;
+}
+
 int main() {
 
     std::vector<particle_t> parts;
     init_particles(parts);
 
     auto num_parts = static_cast<idx_t>(parts.size());
+    idx_t frame_number = 0;
+    particle_t* last_output_buffer, *output_buffer;
 
-    particle_t* parts_gpu;
-    cudaMalloc(&parts_gpu, num_parts * sizeof(particle_t));
-    cudaMemcpy(parts_gpu, parts.data(), num_parts * sizeof(particle_t), cudaMemcpyHostToDevice);
-
-    std::string file_prefix = "../point_cloud_data/";
+    particle_t* gpu_buffer;
+    cudaMalloc((void**)&gpu_buffer, num_parts * sizeof(particle_t));
+    cudaMemcpy(gpu_buffer, parts.data(), num_parts * sizeof(particle_t), cudaMemcpyHostToDevice);
+    last_output_buffer = gpu_buffer;
+    bool success = buff_to_read.push(std::make_pair(frame_number++, gpu_buffer));
+    assert((success == true));
+    for (idx_t i = 1; i < gpu_buffer_num; ++i) {
+        cudaMalloc((void**)&gpu_buffer, num_parts * sizeof(particle_t));
+        bool success = buff_to_write.push(gpu_buffer);
+        assert((success == true));
+    }
 
     auto start_time = std::chrono::steady_clock::now();
 
-    init_simul(parts_gpu, num_parts);
+    std::thread thread_arr[save_thread_num];
+    for (idx_t i = 0; i < save_thread_num; ++i) {
+        thread_arr[i] = std::thread(save_thread_fct, num_parts);
+    }
 
-    int frame_number = 0;
+    init_simul(num_parts);
+
+    success = buff_to_write.pop(output_buffer);
+    assert((success == true));
     for (idx_t step = 0; step < num_steps; ++step) {
-        simul_one_step(parts_gpu, num_parts);
+        
+        assert((output_buffer != last_output_buffer));
+        simul_one_step(last_output_buffer, num_parts, output_buffer);
 
-        if (step % check_steps == 0 || step == num_steps - 1) {
-            cudaMemcpy(parts.data(), parts_gpu, num_parts * sizeof(particle_t), cudaMemcpyDeviceToHost);
-            save_point_cloud_data(parts, file_prefix + std::to_string(frame_number) + ".ply");
-            frame_number++;
+        last_output_buffer = output_buffer;
+        while (!buff_to_write.pop(output_buffer));
+
+        if (write_to_file && (step % check_steps == 0 || step == num_steps - 1)) {
+            while (!buff_to_read.push(std::make_pair(frame_number++, last_output_buffer)));
+        }
+        else {
+            while (!buff_to_write.push(last_output_buffer));
         }
     }
 
     clear_simul();
     cudaDeviceSynchronize();
 
-    auto end_time = std::chrono::steady_clock::now();
+    gpu_running = false;
 
+    for (idx_t i = 0; i < save_thread_num; ++i) {
+        std::thread* thread_ptr = &thread_arr[i];
+        if (thread_ptr->joinable()) {
+            thread_ptr->join();
+        }
+    }
+
+    auto end_time = std::chrono::steady_clock::now();
     std::chrono::duration<double> diff_time = end_time - start_time;
     double seconds = diff_time.count();
-
     std::cout << "Simulation TIme = " << seconds << " seconds for " << num_parts << " particles.\n";
-    cudaFree(parts_gpu);
+
+    for (idx_t i = 1; i < gpu_buffer_num; ++i) {
+        particle_t* to_delete;
+        bool success = buff_to_write.pop(to_delete);
+        assert((success == true));
+        cudaFree(to_delete);
+    }
+    cudaFree(output_buffer);
 
     return 0;
 }
